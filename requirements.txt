@@ -1,0 +1,6 @@
+flask>=3.0.0
+openai>=1.40.0
+openai-agents>=0.0.10
+guardrails-ai>=0.5.13
+pydantic>=2.7.0
+python-dotenv>=1.0.1
