@@ -1,12 +1,10 @@
 import asyncio
+import json
+import re
 from dotenv import load_dotenv
 from flask import Blueprint, jsonify, render_template, request
-from openai.types.shared.reasoning import Reasoning
-from pydantic import BaseModel
 
-from agents import Agent, FileSearchTool, ModelSettings, RunConfig, Runner, trace
-
-from ..extensions import client, ctx
+from ..extensions import client
 from ..services.chat_service import (
     add_message,
     build_conversation_history,
@@ -17,514 +15,347 @@ from ..services.chat_service import (
     update_chat,
 )
 
-try:
-    from guardrails.runtime import load_config_bundle, instantiate_guardrails, run_guardrails
-except ModuleNotFoundError:
-    # Fallback for guardrails versions without runtime module.
-    def load_config_bundle(config):
-        return config
-
-    def instantiate_guardrails(config):
-        return config
-
-    async def run_guardrails(_ctx, _text, _content_type, _config, **_kwargs):
-        return []
-
 load_dotenv()
 
 main_bp = Blueprint("main", __name__)
 
-# Guardrails definitions
-guardrails_config = {
-    "guardrails": [
-        {
-            "name": "Contains PII",
-            "config": {
-                "block": False,
-                "detect_encoded_pii": True,
-                "entities": ["CREDIT_CARD", "US_BANK_NUMBER", "US_PASSPORT", "US_SSN"],
-            },
-        },
-        {
-            "name": "Moderation",
-            "config": {
-                "categories": [
-                    "sexual/minors",
-                    "hate/threatening",
-                    "harassment/threatening",
-                    "self-harm/instructions",
-                    "violence/graphic",
-                    "illicit/violent",
-                ]
-            },
-        },
-    ]
+# ---------------------------------------------------------------------------
+# Guardrails (lightweight, inline – no SDK dependency)
+# ---------------------------------------------------------------------------
+BLOCKED_MODERATION_CATEGORIES = [
+    "sexual/minors",
+    "hate/threatening",
+    "harassment/threatening",
+    "self-harm/instructions",
+    "violence/graphic",
+    "illicit/violent",
+]
+
+PII_PATTERNS = {
+    "CREDIT_CARD": re.compile(r"\b(?:\d[ -]?){13,16}\b"),
+    "US_SSN": re.compile(r"\b\d{3}-\d{2}-\d{4}\b"),
+    "US_PASSPORT": re.compile(r"\b[A-Z]{1,2}\d{6,9}\b"),
+    "US_BANK_NUMBER": re.compile(r"\b\d{8,17}\b"),
 }
 
 
-def guardrails_has_tripwire(results):
-    return any(
-        (hasattr(r, "tripwire_triggered") and (r.tripwire_triggered is True))
-        for r in (results or [])
-    )
+def scrub_pii(text: str) -> tuple[str, list[str]]:
+    """Replace PII with placeholders. Returns (scrubbed_text, detected_entity_types)."""
+    detected = []
+    for entity, pattern in PII_PATTERNS.items():
+        if pattern.search(text):
+            detected.append(entity)
+            text = pattern.sub(f"[{entity}]", text)
+    return text, detected
 
 
-def get_guardrail_safe_text(results, fallback_text):
-    for r in (results or []):
-        info = (r.info if hasattr(r, "info") else None) or {}
-        if isinstance(info, dict) and ("checked_text" in info):
-            return info.get("checked_text") or fallback_text
-    pii = next(
-        (
-            (r.info if hasattr(r, "info") else {})
-            for r in (results or [])
-            if isinstance((r.info if hasattr(r, "info") else None) or {}, dict)
-            and ("anonymized_text" in ((r.info if hasattr(r, "info") else None) or {}))
-        ),
-        None,
-    )
-    if isinstance(pii, dict) and ("anonymized_text" in pii):
-        return pii.get("anonymized_text") or fallback_text
-    return fallback_text
-
-
-async def scrub_conversation_history(history, config):
+async def run_moderation(text: str) -> list[str]:
+    """Call OpenAI moderation endpoint. Returns list of flagged categories."""
     try:
-        guardrails = (config or {}).get("guardrails") or []
-        pii = next((g for g in guardrails if (g or {}).get("name") == "Contains PII"), None)
-        if not pii:
-            return
-        pii_only = {"guardrails": [pii]}
-        for msg in (history or []):
-            content = (msg or {}).get("content") or []
-            for part in content:
-                if isinstance(part, dict) and part.get("type") == "input_text" and isinstance(
-                    part.get("text"), str
-                ):
-                    res = await run_guardrails(
-                        ctx,
-                        part["text"],
-                        "text/plain",
-                        instantiate_guardrails(load_config_bundle(pii_only)),
-                        suppress_tripwire=True,
-                        raise_guardrail_errors=True,
-                    )
-                    part["text"] = get_guardrail_safe_text(res, part["text"])
+        resp = await client.moderations.create(input=text)
+        result = resp.results[0]
+        flagged = []
+        cats = result.categories.model_dump()
+        for cat in BLOCKED_MODERATION_CATEGORIES:
+            key = cat.replace("/", "_").replace("-", "_")
+            if cats.get(key) or cats.get(cat):
+                flagged.append(cat)
+        return flagged
     except Exception:
-        pass
+        return []
 
 
-async def scrub_workflow_input(workflow, input_key, config):
-    try:
-        guardrails = (config or {}).get("guardrails") or []
-        pii = next((g for g in guardrails if (g or {}).get("name") == "Contains PII"), None)
-        if not pii:
-            return
-        if not isinstance(workflow, dict):
-            return
-        value = workflow.get(input_key)
-        if not isinstance(value, str):
-            return
-        pii_only = {"guardrails": [pii]}
-        res = await run_guardrails(
-            ctx,
-            value,
-            "text/plain",
-            instantiate_guardrails(load_config_bundle(pii_only)),
-            suppress_tripwire=True,
-            raise_guardrail_errors=True,
-        )
-        workflow[input_key] = get_guardrail_safe_text(res, value)
-    except Exception:
-        pass
+async def apply_guardrails(text: str):
+    """
+    Returns dict:
+      blocked      – True if request must be rejected
+      safe_text    – PII-scrubbed text to use downstream
+      fail_output  – dict describing what failed (only set when blocked=True)
+    """
+    # 1. PII scrub (mask, don't block)
+    safe_text, pii_entities = scrub_pii(text)
+
+    # 2. Moderation check
+    flagged_cats = await run_moderation(safe_text)
+
+    if flagged_cats:
+        return {
+            "blocked": True,
+            "safe_text": safe_text,
+            "fail_output": {
+                "moderation": {"failed": True, "flagged_categories": flagged_cats},
+                "pii": {"detected": pii_entities},
+            },
+        }
+
+    return {"blocked": False, "safe_text": safe_text, "fail_output": None}
 
 
-async def run_and_apply_guardrails(input_text, config, history, workflow):
-    results = await run_guardrails(
-        ctx,
-        input_text,
-        "text/plain",
-        instantiate_guardrails(load_config_bundle(config)),
-        suppress_tripwire=True,
-        raise_guardrail_errors=True,
-    )
-    guardrails = (config or {}).get("guardrails") or []
-    mask_pii = (
-        next(
-            (
-                g
-                for g in guardrails
-                if (g or {}).get("name") == "Contains PII"
-                and ((g or {}).get("config") or {}).get("block") is False
-            ),
-            None,
-        )
-        is not None
-    )
-    if mask_pii:
-        await scrub_conversation_history(history, config)
-        await scrub_workflow_input(workflow, "input_as_text", config)
-        await scrub_workflow_input(workflow, "input_text", config)
-    has_tripwire = guardrails_has_tripwire(results)
-    safe_text = get_guardrail_safe_text(results, input_text)
-    fail_output = build_guardrail_fail_output(results or [])
-    pass_output = {"safe_text": (get_guardrail_safe_text(results, input_text) or input_text)}
-    return {
-        "results": results,
-        "has_tripwire": has_tripwire,
-        "safe_text": safe_text,
-        "fail_output": fail_output,
-        "pass_output": pass_output,
-    }
+# ---------------------------------------------------------------------------
+# Vector store helpers  – FIX #1, #2, #3, #4
+# Reuse the chat's existing vector store; only create a new one on first upload.
+# ---------------------------------------------------------------------------
+
+async def get_or_create_vector_store(chat_id: int, chat_data: dict) -> str:
+    """Return the existing vector_store_id for the chat, or create a fresh one."""
+    vs_id = (chat_data or {}).get("vector_store_id")
+    if vs_id:
+        return vs_id
+    vector_store = await client.vector_stores.create(name=f"chat_store_{chat_id}")
+    update_chat(chat_id, vector_store_id=vector_store.id)
+    return vector_store.id
 
 
-def build_guardrail_fail_output(results):
-    def _get(name: str):
-        for r in (results or []):
-            info = (r.info if hasattr(r, "info") else None) or {}
-            gname = (info.get("guardrail_name") if isinstance(info, dict) else None) or (
-                info.get("guardrailName") if isinstance(info, dict) else None
-            )
-            if gname == name:
-                return r
-        return None
-
-    pii, mod, jb, hal, nsfw, url, custom, pid = map(
-        _get,
-        [
-            "Contains PII",
-            "Moderation",
-            "Jailbreak",
-            "Hallucination Detection",
-            "NSFW Text",
-            "URL Filter",
-            "Custom Prompt Check",
-            "Prompt Injection Detection",
-        ],
-    )
-
-    def _tripwire(r):
-        return bool(getattr(r, "tripwire_triggered", False))
-
-    def _info(r):
-        return (r.info if hasattr(r, "info") else None) or {}
-
-    jb_info, hal_info, nsfw_info, url_info, custom_info, pid_info, mod_info, pii_info = map(
-        _info, [jb, hal, nsfw, url, custom, pid, mod, pii]
-    )
-    detected_entities = pii_info.get("detected_entities") if isinstance(pii_info, dict) else {}
-    pii_counts = []
-    if isinstance(detected_entities, dict):
-        for k, v in detected_entities.items():
-            if isinstance(v, list):
-                pii_counts.append(f"{k}:{len(v)}")
-    flagged_categories = (mod_info.get("flagged_categories") if isinstance(mod_info, dict) else None) or []
-
-    return {
-        "pii": {"failed": (len(pii_counts) > 0) or _tripwire(pii), "detected_counts": pii_counts},
-        "moderation": {
-            "failed": _tripwire(mod) or (len(flagged_categories) > 0),
-            "flagged_categories": flagged_categories,
-        },
-        "jailbreak": {"failed": _tripwire(jb)},
-        "hallucination": {
-            "failed": _tripwire(hal),
-            "reasoning": (hal_info.get("reasoning") if isinstance(hal_info, dict) else None),
-            "hallucination_type": (
-                hal_info.get("hallucination_type") if isinstance(hal_info, dict) else None
-            ),
-            "hallucinated_statements": (
-                hal_info.get("hallucinated_statements") if isinstance(hal_info, dict) else None
-            ),
-            "verified_statements": (
-                hal_info.get("verified_statements") if isinstance(hal_info, dict) else None
-            ),
-        },
-        "nsfw": {"failed": _tripwire(nsfw)},
-        "url_filter": {"failed": _tripwire(url)},
-        "custom_prompt_check": {"failed": _tripwire(custom)},
-        "prompt_injection": {"failed": _tripwire(pid)},
-    }
-
-
-class WorkflowInput(BaseModel):
-    input_as_text: str
-
-
-async def upload_to_vector_store(uploaded_file):
-    if not uploaded_file:
-        return None
+async def upload_file_to_vector_store(uploaded_file, vector_store_id: str) -> dict:
+    """
+    Upload a new file into the EXISTING vector store.
+    Old files in the store are left intact (OpenAI handles retrieval ranking).
+    If you want replace semantics, delete old files first (see comment below).
+    """
     filename = uploaded_file.filename or "upload"
     content_type = uploaded_file.mimetype or "application/octet-stream"
-    print(f"[upload] Sending file to OpenAI: name={filename} type={content_type}")
+
+    # Optional: remove previous files from the vector store so only the latest matters.
+    # Uncomment the block below for strict single-file-per-chat behaviour.
+    # try:
+    #     existing = await client.vector_stores.files.list(vector_store_id=vector_store_id)
+    #     for vf in existing.data:
+    #         await client.vector_stores.files.delete(
+    #             vector_store_id=vector_store_id, file_id=vf.id
+    #         )
+    # except Exception:
+    #     pass
+
     created = await client.files.create(
         file=(filename, uploaded_file.stream, content_type),
         purpose="assistants",
     )
-    print(f"[upload] OpenAI file_id={created.id}")
-    vector_store = await client.vector_stores.create(name=f"chat_store_{created.id}")
+
     vector_file = await client.vector_stores.files.create(
-        vector_store_id=vector_store.id,
+        vector_store_id=vector_store_id,
         file_id=created.id,
     )
-    while True:
+
+    # Poll until indexed
+    for _ in range(60):           # max ~60 s
         status = await client.vector_stores.files.retrieve(
-            vector_store_id=vector_store.id,
+            vector_store_id=vector_store_id,
             file_id=created.id,
         )
         if status.status == "completed":
             break
         await asyncio.sleep(1)
-    print(
-        f"[vector-store] Indexed file_id={created.id} in vector_store_id={vector_store.id} "
-        f"vector_store_file_id={getattr(vector_file, 'id', None)}"
-    )
+
     return {
         "filename": filename,
         "content_type": content_type,
         "file_id": created.id,
-        "vector_store_id": vector_store.id,
+        "vector_store_id": vector_store_id,
         "vector_store_file_id": getattr(vector_file, "id", None),
     }
 
 
-async def run_workflow(
-    workflow_input: WorkflowInput,
-    conversation_history,
-    vector_store_id,
-    use_document_qa=False,
-):
-    with trace("Proposal Evaluator"):
-        print("[run] Starting workflow")
-        print(f"[run] Using vector_store_id={vector_store_id}")
-        workflow = workflow_input.model_dump()
-        conversation_history.append(
-            {
-                "role": "user",
-                "content": [{"type": "input_text", "text": workflow["input_as_text"]}],
-            }
-        )
-        print(f"[run] User input={workflow['input_as_text']!r}")
-        guardrails_input_text = workflow["input_as_text"]
-        guardrails_result = await run_and_apply_guardrails(
-            guardrails_input_text, guardrails_config, conversation_history, workflow
-        )
-        guardrails_hastripwire = guardrails_result["has_tripwire"]
-        guardrails_output = (
-            guardrails_hastripwire and guardrails_result["fail_output"]
-        ) or guardrails_result["pass_output"]
-        if guardrails_hastripwire:
-            print("[guardrails] Tripwire triggered, returning guardrails output")
-            return guardrails_output, conversation_history
-        if workflow["input_as_text"].strip().lower() in {
-            "evaluate",
-            "analyse",
-            "assessment",
-            "review",
-            "check",
-            "inspect",
-            "test",
-            "validate",
-            "verify",
-            "examine",
-            "scrutinize",
-            "audit",
-        }:
-            if not vector_store_id:
-                return {"output_text": "No document is available to evaluate."}, conversation_history
-            file_search = FileSearchTool(vector_store_ids=[vector_store_id])
-            proposal_evaluator = Agent(
-                name="Proposal Evaluator",
-                instructions=(
-                    "You are a strict, evidence-based evaluator of uploaded documents (PPTX, PDF, image sequence, or text document). "
-                    "Your task is to perform a detailed analysis of the uploaded file against the provided multi-criteria rubric, "
-                    "ensuring each judgment is grounded solely in visible evidence with clear slide/page/frame references. "
-                    "Do not make any assumptions or interpretations outside what is explicitly shown in the document. "
-                    "Neutrality, consistency, and fairness are paramount; penalize vagueness, missing evidence, and structure gaps. "
-                    "Follow the full evaluation process, step-by-step, as outlined:\n\n"
-                    "# Steps\n\n"
-                    "1. Preparation and Scanning\n"
-                    "- Scan the entire document end-to-end for structure: count slides/pages/frames, note section headings, "
-                    "and identify visuals (charts, timelines, tables, diagrams).\n"
-                    "- On a second pass, read deeply, extracting exact headings, bullets, captions, "
-                    "and noting presence/clarity of visuals (axes/labels/legends/units).\n\n"
-                    "2. Evidence and Indexing\n"
-                    "- For each slide/page/frame, index explicit evidence (e.g., \"Slide 2: Problem statement...\").\n"
-                    "- Do not infer or interpret unstated intentions, causes, or data.\n\n"
-                    "3. Criterion-Based Scoring\n"
-                    "- Analyze and score each of the following five criteria independently using the explicit rubrics below, "
-                    "citing specific evidence for each:\n"
-                    "- A. Problem Statement (0-10): Clarity, context, supporting data, and explicit identification.\n"
-                    "- B. Solution Clarity (0-10): Clear description, structure, logical flow, visual support.\n"
-                    "- C. Feasibility (0-10): Implementation details, resourcing, technical specifics, evidence of readiness.\n"
-                    "- D. Impact & ROI (0-10): Quantified outcomes, measurement plans, linkage to solution mechanisms.\n"
-                    "- E. Design & Storytelling (0-10): Visual consistency, readability, professional design, narrative flow.\n\n"
-                    "- For each criterion, provide a score per rubric (with strict adherence to prescribed score ranges/penalties) "
-                    "and a reasoned justification referencing the indexed document evidence.\n\n"
-                    "4. Strict Use of Evidence\n"
-                    "- Whenever scoring, cite slide/page/frame numbers and direct quotes or paraphrases.\n"
-                    "- Penalize missing, unclear, or implied content as detailed in the rubrics.\n"
-                    "- State explicitly if content is illegible, missing, or unclear, and penalize accordingly.\n\n"
-                    "5. Scoring Mechanics\n"
-                    "- Assign an integer score (0-10) to each criterion without rounding up artificially.\n"
-                    "- Calculate the final weighted score as the simple average of the five criteria, rounded to one decimal place.\n\n"
-                    "6. Executive Summary\n"
-                    "- After scoring, synthesize your findings in an executive summary that:\n"
-                    "- States overall quality in 1-2 sentences based on scores.\n"
-                    "- Cites STRENGTHS and WEAKNESSES, referencing precise slide numbers and evidence.\n"
-                    "- Lists clear, actionable AREAS FOR IMPROVEMENT tied to the document and rubric.\n\n"
-                    "7. Handling File Types and Quality\n"
-                    "- For non-text or image-based PDFs: treat each image or frame as a page, extract all visible content.\n"
-                    "- If content is illegible (e.g., low-quality scan, missing text): note the limitation, "
-                    "penalize impacted criteria.\n\n"
-                    "8. Enforce Complete Neutrality\n"
-                    "- Use professional, non-emotive language.\n"
-                    "- Refuse to speculate about missing or implied data. Favor penalization for every gap per the rubric.\n\n"
-                    "# Output Format\n\n"
-                    "Strictly use the following output template, without altering its structure:\n\n"
-                    "Evaluation Report\n"
-                    "------------------\n"
-                    "1. Problem Statement: X/10\n"
-                    "- Evidence-based Reason:\n"
-                    "2. Solution Clarity: X/10\n"
-                    "- Evidence-based Reason:\n"
-                    "3. Feasibility: X/10\n"
-                    "- Evidence-based Reason:\n"
-                    "4. Impact & ROI: X/10\n"
-                    "- Evidence-based Reason:\n"
-                    "5. Design & Storytelling: X/10\n"
-                    "- Evidence-based Reason:\n"
-                    "Final Weighted Score: X/10\n\n"
-                    "Executive Summary:\n"
-                    "- Overall Quality:\n"
-                    "- Strengths:\n"
-                    "- Weaknesses:\n"
-                    "- Areas of Improvement:\n"
-                    "Slide Template Evaluation:\n"
-                    "- Template Match Score: X/10\n"
-                    "- Deviations:\n\n"
-                    "Your response must be clear, properly sectioned, and formatted exactly as above. "
-                    "All claims must be tied to explicit evidence in the document with precise slide/page/frame numbers.\n\n"
-                    "In Title slide the left logo represent Unlimited Innovations which is not client, the right side logo which has been used as client logo "
-                    "and subtitle of the first slide represent the client name. based on this provide information about the client\n\n"
-                    "Also please analyse that the uploaded PDF has these contents in the slides\n"
-                    "This PowerPoint template offers multiple slide layouts to accommodate various presentation needs. Please adhere to the following guidelines when creating decks:\n"
-                    "Do not make edits in the template or in the Slide Master. Always make a copy of this deck for your own needs.\n"
-                    "Aim to use 17+ font size. Avoid text smaller than 12, with the exception of tables, graphs, and footnotes (as appropriate).\n"
-                    "Use the theme fonts and colors for consistency.\n"
-                    "Slide title text font is Open Sans Light. Subheader text font is Open Sans Bold, and body text font is Open Sans Regular. "
-                    "Slide titles are in titlecase, and subheaders and body text are in sentence case.\n"
-                    "Slide titles and subheaders use font color Blue HEX #0059B8 unless it is on a dark background, "
-                    "in which case it should be the font color Light HEX #F3F5F5.\n"
-                    "Slide body copy use font color Ink HEX #1F2020 unless it is on a dark background, "
-                    "in which case it should be the font color Light HEX #F3F5F5.\n"
-                    "The icon and graph colors can be changed as long as it is within the template color palette.\n"
-                    "When copying and pasting content from other decks, avoid copying the entire slide. "
-                    "Copy only the slide content (text boxes, images, etc.) and right-click to paste using Use Destination Theme in the deck.\n"
-                    "Contact the Marketing team if you have feedback or if you have ideas for additional slide layouts.\n\n"
-                    "Also the prompt and ask that which region it is for if it is US the first slide need to be with UB Technology Innovations and If India then Unlimited Innovations and if it is UAE then UB Infinite solutions and then finally after the Improvement section give section for slide template evaluation score based on the match and if there is deviation then need to showcase the points.\n\n"
-                    "Reminder: Your primary duties are to evaluate explicit content only, score strictly according to the rubric, "
-                    "and cite all evidence by location, presenting your findings in the mandated format with step-by-step justification for every score."
-                ),
-                model="gpt-5.2",
-                tools=[file_search],
-                model_settings=ModelSettings(
-                    store=False,
-                    reasoning=Reasoning(
-                        effort="low",
-                        summary="auto",
-                    ),
-                ),
-            )
-            proposal_evaluator_result_temp = await Runner.run(
-                proposal_evaluator,
-                input=[*conversation_history],
-                run_config=RunConfig(
-                    trace_metadata={
-                        "__trace_source__": "agent-builder",
-                        "workflow_id": "wf_6995798aa648819081ebbbb27d899f550d41e630ed9d94c6",
-                    }
-                ),
-            )
-            conversation_history.extend(
-                [item.to_input_item() for item in proposal_evaluator_result_temp.new_items]
-            )
-            proposal_evaluator_result = {
-                "output_text": proposal_evaluator_result_temp.final_output_as(str)
-            }
-            return proposal_evaluator_result, conversation_history
+# ---------------------------------------------------------------------------
+# Direct OpenAI API agents – FIX #5  (no SDK agent builder, much faster)
+# ---------------------------------------------------------------------------
 
-        if use_document_qa:
-            if not vector_store_id:
-                return {"output_text": "No document is available to answer from."}, conversation_history
-            file_search = FileSearchTool(vector_store_ids=[vector_store_id])
-            agent_to_use = Agent(
-                name="Document QA Agent",
-                instructions=(
-                    "You answer questions about the uploaded document using file search results. "
-                    "Use the file_search tool to find relevant content and only answer from the document. "
-                    "If the answer is not in the document, say so. "
-                    "Cite slide/page numbers when possible."
-                ),
-                model="gpt-5.2",
-                tools=[file_search],
-                model_settings=ModelSettings(
-                    store=False,
-                    reasoning=Reasoning(
-                        effort="low",
-                        summary="auto",
-                    ),
-                ),
-            )
+EVALUATOR_SYSTEM_PROMPT = """You are a strict, evidence-based evaluator of uploaded documents (PPTX, PDF, image sequence, or text document).
+Your task is to perform a detailed analysis of the uploaded file against the provided multi-criteria rubric,
+ensuring each judgment is grounded solely in visible evidence with clear slide/page/frame references.
+Do not make any assumptions or interpretations outside what is explicitly shown in the document.
+Neutrality, consistency, and fairness are paramount; penalize vagueness, missing evidence, and structure gaps.
+
+Evaluate using these five criteria (0-10 each):
+A. Problem Statement – Clarity, context, supporting data, explicit identification.
+B. Solution Clarity – Clear description, structure, logical flow, visual support.
+C. Feasibility – Implementation details, resourcing, technical specifics, evidence of readiness.
+D. Impact & ROI – Quantified outcomes, measurement plans, linkage to solution mechanisms.
+E. Design & Storytelling – Visual consistency, readability, professional design, narrative flow.
+
+Output EXACTLY this template:
+
+Evaluation Report
+------------------
+1. Problem Statement: X/10
+- Evidence-based Reason:
+2. Solution Clarity: X/10
+- Evidence-based Reason:
+3. Feasibility: X/10
+- Evidence-based Reason:
+4. Impact & ROI: X/10
+- Evidence-based Reason:
+5. Design & Storytelling: X/10
+- Evidence-based Reason:
+Final Weighted Score: X/10
+
+Executive Summary:
+- Overall Quality:
+- Strengths:
+- Weaknesses:
+- Areas of Improvement:
+Slide Template Evaluation:
+- Template Match Score: X/10
+- Deviations:
+
+In the Title slide the left logo represents Unlimited Innovations (not the client);
+the right-side logo is the client logo; the subtitle of the first slide is the client name.
+
+Also check that the document follows these template guidelines:
+- Font ≥17pt; never <12pt except tables/graphs/footnotes.
+- Theme fonts: Open Sans Light (titles), Open Sans Bold (subheaders), Open Sans Regular (body).
+- Titles in Title Case; subheaders and body in Sentence case.
+- Titles/subheaders: Blue #0059B8 on light bg, Light #F3F5F5 on dark bg.
+- Body copy: Ink #1F2020 on light bg, Light #F3F5F5 on dark bg.
+
+Region note: if US → first slide uses "UB Technology Innovations";
+if India → "Unlimited Innovations"; if UAE → "UB Infinite Solutions"."""
+
+WEB_SEARCH_SYSTEM_PROMPT = """You provide helpful assistance by searching the web for up-to-date information.
+When asked about a company, present results in a clear markdown table including:
+- Company overview, recent revenue (with year), employee count, founding year & location,
+  key executives, headquarters, main products/services, notable awards, website URL.
+Include source links. Be concise but complete (8-12 rows). Always cite sources."""
+
+DOC_QA_SYSTEM_PROMPT = """You answer questions about the uploaded document.
+Only answer from document content retrieved via file_search.
+If the answer is not in the document, say so clearly.
+Cite slide/page numbers when possible."""
+
+EVALUATE_KEYWORDS = {
+    "evaluate", "analyse", "analyze", "assessment", "review",
+    "check", "inspect", "test", "validate", "verify", "examine",
+    "scrutinize", "audit",
+}
+
+IDENTITY_PROMPTS = {"who are you", "who r you", "who are u", "what are you",
+                    "identify yourself", "introduce yourself"}
+CAPABILITY_PROMPTS = {"tell me your capabilities", "what are your capabilities",
+                      "capabilities", "what can you do", "your capabilities"}
+
+
+async def call_openai_with_file_search(
+    system_prompt: str,
+    conversation_history: list,
+    vector_store_id: str,
+) -> str:
+    """
+    Direct Responses API call with file_search tool attached to a vector store.
+    No SDK agent runner – typically responds in 5-10 s.
+    """
+    tools = [
+        {
+            "type": "file_search",
+            "vector_store_ids": [vector_store_id],
+        }
+    ]
+
+    # Build input list for the Responses API
+    input_messages = []
+    for msg in conversation_history:
+        role = msg.get("role", "user")
+        content = msg.get("content", "")
+        if isinstance(content, list):
+            # Already structured
+            input_messages.append({"role": role, "content": content})
         else:
-            agent_to_use = Agent(
-                name="Web search Agent",
-                instructions=(
-                    "Provide helpful assistance by searching the web for necessary and up-to-date information about a given search query. "
-                    "For example, if a user inquires about a company, research recent and reliable online sources to gather comprehensive details, "
-                    "then present the results in a clear, well-structured table format. Include all relevant information such as: \n\n"
-                    "- Company overview/about\n"
-                    "- Recent revenue figures (state the year)\n"
-                    "- Number of employees (most recent figure available)\n"
-                    "- Founding year & location\n"
-                    "- Key executives/leadership\n"
-                    "- Headquarters location\n"
-                    "- Main products/services\n"
-                    "- Any notable awards or achievements\n"
-                    "- Website URL\n\n"
-                    "If additional pertinent or commonly requested information is found (e.g., market cap, major acquisitions), include this as well. "
-                    "Always cite the source for each data point in the table with a direct link or short reference.\n\n"
-                    "Output Format:\n"
-                    "- Response: A single, well-formatted markdown table summarizing all collected data.\n"
-                    "- Length: Table should be concise but as complete as possible, typically 8-12 rows.\n"
-                    "- Sources must appear as hyperlinks within each table cell or a footnote below the table.\n\n"
-                    "Reminder: Your objective is to provide clean, well-sourced, and easily readable tables with as much verified detail as you can find."
-                ),
-                model="gpt-5.2",
-                model_settings=ModelSettings(
-                    store=False,
-                    reasoning=Reasoning(
-                        effort="low",
-                        summary="auto",
-                    ),
-                ),
-            )
-        web_search_agent_result_temp = await Runner.run(
-            agent_to_use,
-            input=[*conversation_history],
-            run_config=RunConfig(
-                trace_metadata={
-                    "__trace_source__": "agent-builder",
-                    "workflow_id": "wf_6995798aa648819081ebbbb27d899f550d41e630ed9d94c6",
-                }
-            ),
-        )
-        conversation_history.extend(
-            [item.to_input_item() for item in web_search_agent_result_temp.new_items]
-        )
-        web_search_agent_result = {"output_text": web_search_agent_result_temp.final_output_as(str)}
-        return web_search_agent_result, conversation_history
+            input_messages.append({"role": role, "content": str(content)})
 
+    response = await client.responses.create(
+        model="gpt-4.1",
+        instructions=system_prompt,
+        tools=tools,
+        input=input_messages,
+        store=False,
+    )
+    return response.output_text
+
+
+async def call_openai_chat(
+    system_prompt: str,
+    conversation_history: list,
+) -> str:
+    """
+    Direct Chat Completions call – no tools, fastest path.
+    """
+    messages = [{"role": "system", "content": system_prompt}]
+    for msg in conversation_history:
+        role = msg.get("role", "user")
+        content = msg.get("content", "")
+        if isinstance(content, list):
+            # Flatten structured content to plain text for chat completions
+            text_parts = [
+                p.get("text", "") for p in content
+                if isinstance(p, dict) and p.get("type") in ("input_text", "text")
+            ]
+            content = " ".join(text_parts)
+        messages.append({"role": role, "content": str(content)})
+
+    response = await client.chat.completions.create(
+        model="gpt-4.1",
+        messages=messages,
+    )
+    return response.choices[0].message.content or ""
+
+
+async def run_workflow(
+    user_text: str,
+    conversation_history: list,
+    vector_store_id: str | None,
+    use_document_qa: bool,
+) -> str:
+    """
+    Route the request to the correct agent and return the output string.
+    No SDK Runner – direct API calls only.
+    """
+    # Guard: short-circuit for identity/capability
+    lower = user_text.strip().lower()
+    if lower in IDENTITY_PROMPTS:
+        return "I am UBTI AI Powered Assistant."
+    if lower in CAPABILITY_PROMPTS:
+        return (
+            "I am UBTI AI Agent. I can perform web search and evaluate proposals "
+            "to meet organisation standards."
+        )
+
+    # Apply guardrails
+    guardrail = await apply_guardrails(user_text)
+    if guardrail["blocked"]:
+        fail = guardrail["fail_output"]
+        cats = (fail.get("moderation") or {}).get("flagged_categories", [])
+        return (
+            "Your message was flagged and could not be processed. "
+            f"Reason: {', '.join(cats) or 'policy violation'}."
+        )
+
+    # Use the scrubbed text going forward
+    safe_text = guardrail["safe_text"]
+
+    # Append the (possibly scrubbed) user message to history
+    conversation_history.append(
+        {"role": "user", "content": [{"type": "input_text", "text": safe_text}]}
+    )
+
+    # -- Evaluation branch
+    if lower in EVALUATE_KEYWORDS:
+        if not vector_store_id:
+            return "No document is available to evaluate. Please upload a file first."
+        return await call_openai_with_file_search(
+            EVALUATOR_SYSTEM_PROMPT, conversation_history, vector_store_id
+        )
+
+    # -- Document QA branch (file uploaded / with_pdf mode)
+    if use_document_qa and vector_store_id:
+        return await call_openai_with_file_search(
+            DOC_QA_SYSTEM_PROMPT, conversation_history, vector_store_id
+        )
+
+    # -- Web search / general chat branch
+    return await call_openai_chat(WEB_SEARCH_SYSTEM_PROMPT, conversation_history)
+
+
+# ---------------------------------------------------------------------------
+# Flask routes
+# ---------------------------------------------------------------------------
 
 @main_bp.route("/")
 def index():
@@ -558,67 +389,17 @@ def chat_messages(chat_id):
     if not chat:
         return jsonify({"error": "Chat not found"}), 404
 
-    user_text = request.form.get("input_text", "").strip()
+    user_text = request.form.get("input_text", "").strip() or "evaluate"
     mode = request.form.get("mode", chat.get("mode") or "with_pdf").strip()
     context_text = request.form.get("context_text", chat.get("context_text") or "").strip()
     uploaded = request.files.get("file")
     upload_status = None
 
-    if not user_text:
-        user_text = "evaluate"
-
-    identity_prompts = {
-        "who are you",
-        "who r you",
-        "who are u",
-        "what are you",
-        "identify yourself",
-        "introduce yourself",
-    }
-    capability_prompts = {
-        "tell me your capabilities",
-        "what are your capabilities",
-        "capabilities",
-        "what can you do",
-        "your capabilities",
-    }
-    if user_text.strip().lower() in identity_prompts:
-        response_text = "I am UBTI AI Powered Assistant."
-        add_message(chat_id, "user", user_text)
-        add_message(chat_id, "assistant", response_text)
-        if chat.get("title") == "New Chat" and user_text:
-            new_title = user_text.strip().splitlines()[0][:48]
-            update_chat(chat_id, title=new_title or "New Chat")
-        return jsonify(
-            {
-                "output_text": response_text,
-                "chat_id": chat_id,
-                "messages": get_messages(chat_id),
-                "chat": get_chat(chat_id),
-            }
-        )
-    if user_text.strip().lower() in capability_prompts:
-        response_text = (
-            "I am UBTI AI Agent. I can perform web search and evaluate proposals "
-            "to meet organization standards."
-        )
-        add_message(chat_id, "user", user_text)
-        add_message(chat_id, "assistant", response_text)
-        if chat.get("title") == "New Chat" and user_text:
-            new_title = user_text.strip().splitlines()[0][:48]
-            update_chat(chat_id, title=new_title or "New Chat")
-        return jsonify(
-            {
-                "output_text": response_text,
-                "chat_id": chat_id,
-                "messages": get_messages(chat_id),
-                "chat": get_chat(chat_id),
-            }
-        )
-
+    # Prepend context for context-aware modes
     if mode in {"with_pdf", "only_context"} and context_text:
         user_text = f"Context:\n{context_text}\n\nQuestion: {user_text}"
 
+    # Persist user message & update title
     add_message(chat_id, "user", user_text)
     if chat.get("title") == "New Chat" and user_text:
         new_title = user_text.strip().splitlines()[0][:48]
@@ -626,34 +407,48 @@ def chat_messages(chat_id):
 
     async def _run():
         nonlocal upload_status
+
+        chat_data = get_chat(chat_id) or {}
+
+        # FIX #1 & #2 & #3 & #4:
+        # Reuse the chat's vector store; only upload when a NEW file arrives.
         if uploaded and mode == "with_pdf":
-            upload_status = await upload_to_vector_store(uploaded)
+            vs_id = await get_or_create_vector_store(chat_id, chat_data)
+            upload_status = await upload_file_to_vector_store(uploaded, vs_id)
+            # Persist latest file metadata against this chat
             update_chat(
                 chat_id,
                 last_upload_name=uploaded.filename or "upload",
-                openai_file_id=(upload_status or {}).get("file_id"),
-                vector_store_id=(upload_status or {}).get("vector_store_id"),
+                openai_file_id=upload_status.get("file_id"),
+                vector_store_id=vs_id,           # same store reused
             )
-        workflow_input = WorkflowInput(input_as_text=user_text)
-        history = build_conversation_history(get_messages(chat_id))
-        use_document_qa = mode == "with_pdf"
-        chat_data = get_chat(chat_id) or {}
+            chat_data = get_chat(chat_id) or {}  # refresh after update
+
         vector_store_id = chat_data.get("vector_store_id")
-        return await run_workflow(
-            workflow_input,
+        use_document_qa = mode == "with_pdf"
+
+        history = build_conversation_history(get_messages(chat_id))
+
+        # FIX #5: direct API, no SDK Runner
+        output_text = await run_workflow(
+            user_text,
             history,
             vector_store_id=vector_store_id,
             use_document_qa=use_document_qa,
         )
+        return output_text
 
-    result, _ = asyncio.run(_run())
-    add_message(chat_id, "assistant", result.get("output_text", ""))
+    output_text = asyncio.run(_run())
 
+    add_message(chat_id, "assistant", output_text)
     update_chat(chat_id, mode=mode, context_text=context_text)
 
-    if isinstance(result, dict):
-        result["upload_status"] = upload_status
-        result["chat_id"] = chat_id
-        result["messages"] = get_messages(chat_id)
-        result["chat"] = get_chat(chat_id)
-    return jsonify(result)
+    return jsonify(
+        {
+            "output_text": output_text,
+            "upload_status": upload_status,
+            "chat_id": chat_id,
+            "messages": get_messages(chat_id),
+            "chat": get_chat(chat_id),
+        }
+    )
