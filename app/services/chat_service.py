@@ -3,6 +3,10 @@ from app.models.chat import Chat, Message
 
 
 def build_conversation_history(messages):
+    """
+    Convert flat message dicts into the structured format expected by
+    the OpenAI Responses API (input_text for user, output_text for assistant).
+    """
     history = []
     for msg in messages or []:
         role = msg["role"]
@@ -23,8 +27,11 @@ def create_chat(title="New Chat", mode="with_pdf", context_text=""):
     return chat.id
 
 
-def list_chats():
-    chats = Chat.query.order_by(Chat.id.desc()).all()
+def list_chats(mode=None):
+    q = Chat.query
+    if mode:
+        q = q.filter_by(mode=mode)
+    chats = q.order_by(Chat.id.desc()).all()
     return [chat.to_dict() for chat in chats]
 
 
@@ -43,6 +50,13 @@ def update_chat(chat_id, **fields):
     db.session.commit()
 
 
+def delete_chat(chat_id):
+    chat = Chat.query.get(chat_id)
+    if chat:
+        db.session.delete(chat)
+        db.session.commit()
+
+
 def add_message(chat_id, role, content):
     message = Message(chat_id=chat_id, role=role, content=content)
     db.session.add(message)
@@ -50,7 +64,12 @@ def add_message(chat_id, role, content):
 
 
 def get_messages(chat_id):
-    messages = Message.query.filter_by(chat_id=chat_id).order_by(Message.id.asc()).all()
+    messages = (
+        Message.query
+        .filter_by(chat_id=chat_id)
+        .order_by(Message.id.asc())
+        .all()
+    )
     return [msg.to_dict() for msg in messages]
 
 
@@ -58,6 +77,7 @@ __all__ = [
     "add_message",
     "build_conversation_history",
     "create_chat",
+    "delete_chat",
     "get_chat",
     "get_messages",
     "list_chats",

@@ -1,310 +1,581 @@
 <!doctype html>
-<html lang="en" class="scroll-smooth">
+<html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>UBTI</title>
+  <title>UBTI AI Assistant</title>
+  <script src="https://cdn.tailwindcss.com"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet"/>
-  <link rel="stylesheet" href="/static/css/styles.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+        },
+      },
+    }
+  </script>
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; font-family: 'Inter', sans-serif; background: #f1f5f9; }
+
+    /* ── Scrollbar ── */
+    ::-webkit-scrollbar { width: 4px; height: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+
+    /* ── Tab active state ── */
+    .tab-btn { transition: all 0.18s ease; }
+    .tab-btn.active { background: #eff6ff; color: #1d4ed8; border-color: #bfdbfe !important; }
+    .tab-btn.active .tab-dot { background: #2563eb; }
+    .tab-btn.active .tab-label { color: #1e40af; font-weight: 600; }
+    .tab-btn.active .tab-sub { color: #3b82f6; }
+
+    /* ── History item ── */
+    .hist-item { transition: all 0.15s ease; border: 1px solid transparent; }
+    .hist-item:hover { background: #f8fafc; border-color: #e2e8f0; }
+    .hist-item.active { background: #eff6ff; border-color: #bfdbfe; }
+    .hist-item.active .hist-title { color: #1e40af; }
+
+    /* ── Tab panel visibility ── */
+    .tab-panel { display: none; }
+    .tab-panel.active { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+
+    /* ── Typing animation ── */
+    .dot { width: 6px; height: 6px; border-radius: 50%; background: #94a3b8;
+           display: inline-block; animation: bounce 1.3s ease infinite; }
+    .dot:nth-child(2) { animation-delay: 0.15s; }
+    .dot:nth-child(3) { animation-delay: 0.3s; }
+    @keyframes bounce { 0%,60%,100% { transform: translateY(0); } 30% { transform: translateY(-5px); } }
+
+    /* ── Message entrance ── */
+    .msg-row { animation: msgIn 0.25s ease forwards; }
+    @keyframes msgIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+
+    /* ── Textarea ── */
+    textarea { resize: none; overflow: hidden; min-height: 42px; }
+
+    /* ── Markdown table ── */
+    .md-table { width: 100%; border-collapse: collapse; font-size: 0.78rem; margin-top: 6px; }
+    .md-table th { background: #f1f5f9; padding: 7px 10px; text-align: left; font-weight: 600;
+                   color: #374151; border: 1px solid #e2e8f0; font-size: 0.75rem; }
+    .md-table td { padding: 6px 10px; border: 1px solid #e2e8f0; color: #374151; vertical-align: top; }
+    .md-table tr:hover td { background: #f8fafc; }
+
+    /* ── Upload zone ── */
+    .upload-zone { border: 2px dashed #cbd5e1; transition: all 0.2s; cursor: pointer; }
+    .upload-zone:hover, .upload-zone.drag { border-color: #60a5fa; background: #f0f9ff; }
+
+    /* ── Scrollable log ── */
+    .chat-log { flex: 1; overflow-y: auto; }
+  </style>
 </head>
-<body>
 
-<div class="shell">
-  <header class="topbar">
-    <div class="brand">
-      <span class="brand-mark"></span>
-      <div>
-        <div class="brand-eyebrow">Enterprise Console</div>
-        <h1>UBTI AI Powered Assistant</h1>
+<body class="flex flex-col" style="height:100vh; overflow:hidden;">
+
+<!-- ════════════════ TOPBAR ════════════════ -->
+<header class="flex-shrink-0 bg-white border-b border-slate-200 px-5 py-3 flex items-center justify-between" style="box-shadow:0 1px 3px rgba(0,0,0,0.07);">
+  <div class="flex items-center gap-3">
+    <div class="w-8 h-8 rounded-xl flex items-center justify-center" style="background:linear-gradient(135deg,#2563eb,#1d4ed8);box-shadow:0 4px 12px rgba(37,99,235,.35);">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+    </div>
+    <div>
+      <div class="text-xs font-medium text-slate-400 tracking-widest uppercase" style="font-size:10px;">Enterprise Console</div>
+      <div class="text-sm font-bold text-slate-800 leading-none" style="font-weight:700;">UBTI AI Powered Assistant</div>
+    </div>
+  </div>
+  <div class="flex items-center gap-2">
+    <div class="flex items-center gap-1.5 text-xs font-semibold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
+      <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>Connected
+    </div>
+    <button id="btn-new-chat" class="text-xs font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-full border border-blue-200 transition-all">
+      + New Chat
+    </button>
+  </div>
+</header>
+
+<!-- ════════════════ BODY ════════════════ -->
+<div class="flex flex-1 min-h-0">
+
+  <!-- ══ LEFT SIDEBAR ══ -->
+  <aside class="flex-shrink-0 bg-white border-r border-slate-200 flex flex-col" style="width:252px;box-shadow:1px 0 0 #e2e8f0;">
+
+    <!-- Module tabs -->
+    <div class="p-3 border-b border-slate-100">
+      <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2 px-1" style="font-size:10px;">Modules</p>
+      <div class="space-y-0.5">
+
+        <!-- Proposal -->
+        <button class="tab-btn active w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl border border-transparent text-left" data-tab="proposal">
+          <div class="tab-dot w-6 h-6 rounded-lg bg-slate-100 flex items-center justify-center flex-shrink-0 transition-all" style="background:#dbeafe;">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+          </div>
+          <div class="min-w-0">
+            <div class="tab-label text-xs text-slate-700 truncate" style="font-weight:600;">Proposal Evaluator</div>
+            <div class="tab-sub text-xs text-slate-400 truncate" style="font-size:10px;">Upload & analyse docs</div>
+          </div>
+        </button>
+
+        <!-- Web Search -->
+        <button class="tab-btn w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl border border-transparent text-left" data-tab="websearch">
+          <div class="tab-dot w-6 h-6 rounded-lg bg-slate-100 flex items-center justify-center flex-shrink-0 transition-all">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+          </div>
+          <div class="min-w-0">
+            <div class="tab-label text-xs text-slate-600 truncate" style="font-weight:500;">Web Search</div>
+            <div class="tab-sub text-xs text-slate-400 truncate" style="font-size:10px;">Research & insights</div>
+          </div>
+        </button>
+
+        <!-- HubSpot -->
+        <button class="tab-btn w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl border border-transparent text-left" data-tab="hubspot">
+          <div class="tab-dot w-6 h-6 rounded-lg bg-slate-100 flex items-center justify-center flex-shrink-0 transition-all">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
+          </div>
+          <div class="min-w-0">
+            <div class="tab-label text-xs text-slate-600 truncate" style="font-weight:500;">HubSpot CRM</div>
+            <div class="tab-sub text-xs text-slate-400 truncate" style="font-size:10px;">Coming soon</div>
+          </div>
+        </button>
       </div>
     </div>
-    <div class="topbar-actions">
-      <button id="new-chat" class="btn btn-ghost">New Chat</button>
-      <div class="status-pill">Connected</div>
+
+    <!-- History -->
+    <div class="flex items-center justify-between px-4 py-2 border-b border-slate-100">
+      <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider" style="font-size:10px;">History</span>
+      <span id="hist-count" class="text-xs text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded-full">0</span>
     </div>
-  </header>
+    <div id="hist-list" class="flex-1 overflow-y-auto p-2 space-y-0.5"></div>
 
-  <main class="workspace">
-    <aside class="sidebar">
-      <div class="panel-header">
-        <h2>Chat History</h2>
-        <p>Project threads • Past responses</p>
-      </div>
-      <div id="chat-list" class="chat-list"></div>
-    </aside>
+    <!-- Clear -->
+    <div class="p-2 border-t border-slate-100">
+      <button id="btn-clear" class="w-full flex items-center justify-center gap-1.5 text-xs text-slate-400 hover:text-red-500 hover:bg-red-50 py-2 rounded-lg transition-all" style="font-weight:500;">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3,6 5,6 21,6"/><path d="M19,6v14a2,2 0 01-2,2H7a2,2 0 01-2-2V6m3,0V4a2,2 0 012-2h4a2,2 0 012,2v2"/></svg>
+        Clear History
+      </button>
+    </div>
+  </aside>
 
-    <section class="chat-area">
-      <div id="chat-title" class="chat-title">Select a chat to begin</div>
-      <div id="chat-log" class="chat-log"></div>
-      <form id="chat-form" class="chat-form">
-        <textarea id="message" rows="3" placeholder="Ask anything — analysis, summary, evaluation, code review…" required></textarea>
-        <div class="form-actions">
-          <button type="submit" class="btn" style="background:var(--accent); color:white; padding:0.7rem 1.5rem;">Send</button>
-          <span id="status" style="color:var(--text-muted); font-weight:500;">Ready</span>
+  <!-- ══ MAIN AREA ══ -->
+  <main class="flex-1 flex flex-col min-w-0 min-h-0">
+
+    <!-- ─── PROPOSAL PANEL ─── -->
+    <div id="panel-proposal" class="tab-panel active">
+      <!-- Header -->
+      <div class="flex-shrink-0 bg-white border-b border-slate-200 px-5 py-3 flex items-center justify-between" style="box-shadow:0 1px 0 #f1f5f9;">
+        <div>
+          <h2 id="proposal-title" class="text-sm font-bold text-slate-800">Proposal Evaluator</h2>
+          <p class="text-xs text-slate-400 mt-0.5">Upload a document, then ask questions or type <code class="bg-slate-100 text-slate-600 px-1 rounded text-xs">evaluate</code></p>
         </div>
-      </form>
-    </section>
-
-    <aside class="control-panel">
-      <div class="block">
-        <h3 style="margin-bottom:0.75rem;">Knowledge Mode</h3>
-        <select id="mode">
-          <option value="without_pdf">Pure Chat</option>
-          <option value="with_pdf" selected>PDF Mode</option>
-        </select>
-        <p class="hint">Choose how responses should be grounded</p>
+        <div id="proposal-badge" class="hidden items-center gap-1.5 bg-blue-50 border border-blue-200 text-blue-700 text-xs font-medium px-2.5 py-1 rounded-full">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/></svg>
+          <span id="proposal-badge-name"></span>
+        </div>
       </div>
 
-      <div class="block" id="upload-block">
-        <h3 style="margin-bottom:0.75rem;">Upload Document</h3>
-        <input id="file" type="file" accept=".pdf,.ppt,.pptx,.doc,.docx" />
-        <div id="upload-status" class="hint">No file selected</div>
+      <!-- Log -->
+      <div id="proposal-log" class="chat-log px-5 py-4 space-y-3 bg-slate-50">
+        <div class="flex justify-center py-10">
+          <div class="text-center max-w-xs">
+            <div class="w-12 h-12 rounded-2xl mx-auto mb-3 flex items-center justify-center" style="background:linear-gradient(135deg,#2563eb,#1d4ed8);box-shadow:0 6px 20px rgba(37,99,235,.3);">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+            </div>
+            <div class="text-sm font-bold text-slate-700 mb-1">Proposal Evaluator</div>
+            <div class="text-xs text-slate-400 leading-relaxed">Upload a PDF or PPTX, then ask questions or type <strong>evaluate</strong> for a scored assessment.</div>
+          </div>
+        </div>
       </div>
-    </aside>
+
+      <!-- Input -->
+      <div class="flex-shrink-0 bg-white border-t border-slate-200 p-4">
+        <!-- Upload zone -->
+        <div id="proposal-upload-zone" class="upload-zone rounded-xl px-3 py-2.5 mb-3 flex items-center gap-2.5" onclick="document.getElementById('proposal-file').click()">
+          <div class="w-7 h-7 rounded-lg bg-slate-100 flex items-center justify-center flex-shrink-0">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17,8 12,3 7,8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          </div>
+          <span id="proposal-file-label" class="text-xs text-slate-400">Click or drag to upload PDF / PPTX / DOCX</span>
+          <input id="proposal-file" type="file" accept=".pdf,.ppt,.pptx,.doc,.docx" class="hidden" />
+        </div>
+        <!-- Composer -->
+        <div class="flex items-end gap-2">
+          <div class="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 focus-within:border-blue-400 focus-within:ring-2 focus-within:ring-blue-100 transition-all">
+            <textarea id="proposal-input" rows="1" placeholder="Ask a question or type 'evaluate'…" class="w-full bg-transparent text-sm text-slate-800 placeholder-slate-400 outline-none leading-relaxed"></textarea>
+          </div>
+          <button id="proposal-send" class="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 text-white transition-all hover:-translate-y-0.5" style="background:linear-gradient(135deg,#2563eb,#1d4ed8);box-shadow:0 4px 12px rgba(37,99,235,.35);">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22,2 15,22 11,13 2,9"/></svg>
+          </button>
+        </div>
+        <div id="proposal-status" class="mt-1.5 text-xs text-slate-400 text-right">Ready</div>
+      </div>
+    </div>
+
+    <!-- ─── WEB SEARCH PANEL ─── -->
+    <div id="panel-websearch" class="tab-panel">
+      <div class="flex-shrink-0 bg-white border-b border-slate-200 px-5 py-3">
+        <h2 class="text-sm font-bold text-slate-800">Web Search</h2>
+        <p class="text-xs text-slate-400 mt-0.5">Research companies, topics, or any question using live web data</p>
+      </div>
+      <div id="websearch-log" class="chat-log px-5 py-4 space-y-3 bg-slate-50">
+        <div class="flex justify-center py-10">
+          <div class="text-center max-w-xs">
+            <div class="w-12 h-12 rounded-2xl mx-auto mb-3 flex items-center justify-center" style="background:linear-gradient(135deg,#7c3aed,#6d28d9);box-shadow:0 6px 20px rgba(124,58,237,.3);">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+            </div>
+            <div class="text-sm font-bold text-slate-700 mb-1">Web Search Agent</div>
+            <div class="text-xs text-slate-400 leading-relaxed">Ask about any company, market, or topic. Results are shown in a structured table with source links.</div>
+          </div>
+        </div>
+      </div>
+      <div class="flex-shrink-0 bg-white border-t border-slate-200 p-4">
+        <div class="flex items-end gap-2">
+          <div class="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 focus-within:border-violet-400 focus-within:ring-2 focus-within:ring-violet-100 transition-all">
+            <textarea id="websearch-input" rows="1" placeholder="Search for a company, topic, or question…" class="w-full bg-transparent text-sm text-slate-800 placeholder-slate-400 outline-none leading-relaxed"></textarea>
+          </div>
+          <button id="websearch-send" class="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 text-white transition-all hover:-translate-y-0.5" style="background:linear-gradient(135deg,#7c3aed,#6d28d9);box-shadow:0 4px 12px rgba(124,58,237,.3);">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22,2 15,22 11,13 2,9"/></svg>
+          </button>
+        </div>
+        <div id="websearch-status" class="mt-1.5 text-xs text-slate-400 text-right">Ready</div>
+      </div>
+    </div>
+
+    <!-- ─── HUBSPOT PANEL ─── -->
+    <div id="panel-hubspot" class="tab-panel">
+      <div class="flex-shrink-0 bg-white border-b border-slate-200 px-5 py-3">
+        <h2 class="text-sm font-bold text-slate-800">HubSpot CRM Integration</h2>
+        <p class="text-xs text-slate-400 mt-0.5">Connect your CRM for AI-powered contact and deal management</p>
+      </div>
+      <div class="flex-1 flex items-center justify-center px-6 py-8 bg-slate-50">
+        <div class="text-center max-w-sm w-full">
+          <div class="w-16 h-16 rounded-3xl mx-auto mb-5 flex items-center justify-center" style="background:linear-gradient(135deg,#f97316,#ea580c);box-shadow:0 8px 24px rgba(249,115,22,.3);">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.8"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
+          </div>
+          <div class="text-base font-bold text-slate-800 mb-2">HubSpot Integration</div>
+          <p class="text-xs text-slate-400 leading-relaxed mb-5">Connect your HubSpot CRM to manage contacts, deals, and pipelines directly from this console.</p>
+          <div class="space-y-2 text-left">
+            <!-- Feature rows -->
+            <div class="flex items-center gap-3 bg-white border border-slate-200 rounded-xl px-3.5 py-2.5">
+              <div class="w-7 h-7 rounded-lg bg-orange-100 flex items-center justify-center flex-shrink-0">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#ea580c" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+              </div>
+              <div class="flex-1 min-w-0">
+                <div class="text-xs font-semibold text-slate-700">Contact Management</div>
+                <div class="text-xs text-slate-400">Sync and query CRM contacts with AI</div>
+              </div>
+              <span class="text-xs bg-amber-100 text-amber-600 px-2 py-0.5 rounded-full font-medium flex-shrink-0">Soon</span>
+            </div>
+            <div class="flex items-center gap-3 bg-white border border-slate-200 rounded-xl px-3.5 py-2.5">
+              <div class="w-7 h-7 rounded-lg bg-orange-100 flex items-center justify-center flex-shrink-0">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#ea580c" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+              </div>
+              <div class="flex-1 min-w-0">
+                <div class="text-xs font-semibold text-slate-700">Deal Pipeline AI</div>
+                <div class="text-xs text-slate-400">AI insights and forecasting on deals</div>
+              </div>
+              <span class="text-xs bg-amber-100 text-amber-600 px-2 py-0.5 rounded-full font-medium flex-shrink-0">Soon</span>
+            </div>
+            <div class="flex items-center gap-3 bg-white border border-slate-200 rounded-xl px-3.5 py-2.5">
+              <div class="w-7 h-7 rounded-lg bg-orange-100 flex items-center justify-center flex-shrink-0">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#ea580c" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+              </div>
+              <div class="flex-1 min-w-0">
+                <div class="text-xs font-semibold text-slate-700">Email Automation</div>
+                <div class="text-xs text-slate-400">AI-drafted outreach sequences</div>
+              </div>
+              <span class="text-xs bg-amber-100 text-amber-600 px-2 py-0.5 rounded-full font-medium flex-shrink-0">Soon</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
   </main>
 </div>
 
+<!-- ════════════════ JAVASCRIPT ════════════════ -->
 <script>
-const modeSelect = document.getElementById('mode');
-const uploadBlock = document.getElementById('upload-block');
-const fileInput = document.getElementById('file');
-const chatList = document.getElementById('chat-list');
-const chatLog = document.getElementById('chat-log');
-const chatTitle = document.getElementById('chat-title');
-const chatForm = document.getElementById('chat-form');
-const messageInput = document.getElementById('message');
-const status = document.getElementById('status');
-const uploadStatus = document.getElementById('upload-status');
-const newChatButton = document.getElementById('new-chat');
+// ── Helpers ──────────────────────────────────────────────────────────────
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 
-let currentChatId = null;
+function autoResize(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+}
 
-const setStatus = (text) => {
-  status.textContent = text;
-};
-
-const formatOutput = (text) => {
-  if (!text) return '';
-  const trimmed = text.trim();
-  if (!trimmed) return '';
-  try {
-    const parsed = JSON.parse(trimmed);
-    return JSON.stringify(parsed, null, 2);
-  } catch {
-    return text;
-  }
-};
-
-const escapeHtml = (value) => {
-  return value
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#39;');
-};
-
-const renderMarkdownTable = (text) => {
+function parseMdTable(text) {
   const lines = text.trim().split('\n');
-  if (lines.length < 2) return null;
-  const header = lines[0].trim();
-  const separator = lines[1].trim();
-  if (!header.startsWith('|') || !separator.includes('---')) return null;
+  if (lines.length < 2 || !lines[0].trim().startsWith('|') || !lines[1].includes('---')) return null;
+  const row = r => r.trim().replace(/^\||\|$/g,'').split('|').map(c => esc(c.trim()));
+  const heads = row(lines[0]);
+  const rows = lines.slice(2).map(row).filter(r => r.length > 1);
+  return `<table class="md-table"><thead><tr>${heads.map(h=>`<th>${h}</th>`).join('')}</tr></thead>`+
+         `<tbody>${rows.map(r=>`<tr>${r.map(c=>`<td>${c}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
+}
 
-  const parseRow = (row) =>
-    row
-      .trim()
-      .replace(/^\|/, '')
-      .replace(/\|$/, '')
-      .split('|')
-      .map((cell) => escapeHtml(cell.trim()));
+function renderMd(text) {
+  if (!text) return '';
+  const tbl = parseMdTable(text);
+  if (tbl) return tbl;
+  if (text.includes('Evaluation Report')) {
+    return `<pre class="text-xs font-mono whitespace-pre-wrap leading-relaxed text-slate-700 bg-slate-50 rounded-lg p-3">${esc(text)}</pre>`;
+  }
+  return `<div class="text-sm leading-relaxed text-slate-700">${esc(text).replace(/\n/g,'<br/>')}</div>`;
+}
 
-  const headers = parseRow(header);
-  const rows = lines.slice(2).map(parseRow).filter((r) => r.length > 0);
-
-  const thead = `<thead><tr>${headers
-    .map((h) => `<th>${h}</th>`)
-    .join('')}</tr></thead>`;
-  const tbody = `<tbody>${rows
-    .map((r) => `<tr>${r.map((c) => `<td>${c}</td>`).join('')}</tr>`)
-    .join('')}</tbody>`;
-  return `<table class="md-table">${thead}${tbody}</table>`;
+// ── State ──────────────────────────────────────────────────────────────
+const S = {
+  tab: 'proposal',
+  proposal: { chatId: null },
+  websearch: { chatId: null },
 };
 
-const renderAssistantContent = (text) => {
-  const formatted = formatOutput(text);
-  if (!formatted) return '';
-  const table = renderMarkdownTable(formatted);
-  if (table) return table;
-  return escapeHtml(formatted).replaceAll('\n', '<br />');
-};
-
-const formatTitle = (value) => {
-  const title = (value || 'New Chat').trim();
-  if (!title) return 'New Chat';
-  return title.length > 32 ? `${title.slice(0, 32)}...` : title;
-};
-
-const updateModeVisibility = () => {
-  const isPure = modeSelect.value === 'without_pdf';
-  uploadBlock.classList.toggle('hidden', isPure);
-  fileInput.disabled = isPure;
-};
-
-const renderChats = (chats) => {
-  chatList.innerHTML = '';
-  chats.forEach((chat) => {
-    const item = document.createElement('button');
-    item.className = `chat-item ${chat.id === currentChatId ? 'active' : ''}`;
-    item.innerHTML = `
-      <span>${formatTitle(chat.title)}</span>
-    `;
-    item.addEventListener('click', () => loadChat(chat.id));
-    chatList.appendChild(item);
+// ── Tab switch ─────────────────────────────────────────────────────────
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    S.tab = btn.dataset.tab;
+    document.querySelectorAll('.tab-btn').forEach(b => {
+      const on = b.dataset.tab === S.tab;
+      b.classList.toggle('active', on);
+      const dot = b.querySelector('.tab-dot');
+      if (dot) {
+        dot.style.background = on ? '#dbeafe' : '#f1f5f9';
+        dot.querySelectorAll('svg').forEach(s => s.setAttribute('stroke', on ? '#2563eb' : '#64748b'));
+      }
+    });
+    document.querySelectorAll('.tab-panel').forEach(p =>
+      p.classList.toggle('active', p.id === `panel-${S.tab}`)
+    );
+    refreshHistory();
   });
-};
+});
 
-const renderMessages = (messages) => {
-  chatLog.innerHTML = '';
-  messages.forEach((msg) => {
-    const bubble = document.createElement('div');
-    bubble.className = `bubble ${msg.role}`;
-    if (msg.role === 'assistant') {
-      bubble.innerHTML = renderAssistantContent(msg.content);
-    } else {
-      bubble.textContent = msg.content;
-    }
-    const wrapper = document.createElement('div');
-    wrapper.style.display = 'flex';
-    wrapper.style.flexDirection = 'column';
-    wrapper.style.alignItems = msg.role === 'user' ? 'flex-end' : 'flex-start';
-    wrapper.appendChild(bubble);
-    chatLog.appendChild(wrapper);
-  });
-  chatLog.scrollTop = chatLog.scrollHeight;
-};
+// ── Bubble append ──────────────────────────────────────────────────────
+function appendBubble(logId, role, content, isHtml = false) {
+  const log = $(logId);
+  const wrap = document.createElement('div');
+  wrap.className = `msg-row flex ${role === 'user' ? 'justify-end' : 'justify-start'}`;
 
-const appendBubble = (role, text) => {
-  const bubble = document.createElement('div');
-  bubble.className = `bubble ${role}`;
-  bubble.textContent = text;
-  const wrapper = document.createElement('div');
-  wrapper.style.display = 'flex';
-  wrapper.style.flexDirection = 'column';
-  wrapper.style.alignItems = role === 'user' ? 'flex-end' : 'flex-start';
-  wrapper.appendChild(bubble);
-  chatLog.appendChild(wrapper);
-  chatLog.scrollTop = chatLog.scrollHeight;
-  return bubble;
-};
-
-const fetchChats = async () => {
-  const response = await fetch('/api/chats');
-  const payload = await response.json();
-  renderChats(payload.chats || []);
-  if (!currentChatId && payload.chats && payload.chats.length > 0) {
-    loadChat(payload.chats[0].id);
-  }
-};
-
-const createChat = async () => {
-  const response = await fetch('/api/chats', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      title: 'New Chat',
-      mode: modeSelect.value,
-      context_text: ''
-    })
-  });
-  const payload = await response.json();
-  currentChatId = payload.id;
-  await fetchChats();
-  return currentChatId;
-};
-
-const loadChat = async (chatId) => {
-  const response = await fetch(`/api/chats/${chatId}`);
-  if (!response.ok) return;
-  const payload = await response.json();
-  currentChatId = payload.chat.id;
-  chatTitle.textContent = payload.chat.title || 'Chat';
-  modeSelect.value = payload.chat.mode || 'with_pdf';
-  updateModeVisibility();
-  uploadStatus.textContent = payload.chat.last_upload_name
-    ? `Last upload: ${payload.chat.last_upload_name}`
-    : 'No file selected';
-  renderMessages(payload.messages || []);
-  await fetchChats();
-};
-
-const sendMessage = async () => {
-  if (!currentChatId) {
-    await createChat();
-  }
-  const userText = messageInput.value.trim();
-  if (!userText) {
-    setStatus('Type a message first.');
-    return;
-  }
-
-  setStatus('Processing...');
-  appendBubble('user', userText);
-  const pending = appendBubble('assistant', '...');
-
-  const data = new FormData();
-  data.append('input_text', userText);
-  data.append('mode', modeSelect.value);
-  if (fileInput.files[0] && modeSelect.value === 'with_pdf') {
-    data.append('file', fileInput.files[0]);
-  }
-
-  const response = await fetch(`/api/chats/${currentChatId}/messages`, {
-    method: 'POST',
-    body: data
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    pending.textContent = errorText || 'Request failed.';
-    setStatus('Error sending message.');
-    return;
-  }
-
-  const payload = await response.json();
-  pending.innerHTML = renderAssistantContent(payload.output_text) || 'No response.';
-  messageInput.value = '';
-  setStatus('Ready');
-  if (payload.upload_status && payload.upload_status.filename) {
-    uploadStatus.textContent = `Uploaded: ${payload.upload_status.filename}`;
-  }
-  if (payload.chat && payload.chat.title) {
-    chatTitle.textContent = payload.chat.title;
-  }
-  if (payload.messages) {
-    renderMessages(payload.messages);
+  const bbl = document.createElement('div');
+  if (role === 'user') {
+    bbl.className = 'max-w-xl text-sm text-white px-4 py-2.5 rounded-2xl rounded-tr-sm';
+    bbl.style = 'background:#2563eb;box-shadow:0 2px 8px rgba(37,99,235,.25);';
+    bbl.textContent = content;
   } else {
-    await loadChat(currentChatId);
+    bbl.className = 'max-w-2xl text-sm bg-white border border-slate-200 px-4 py-2.5 rounded-2xl rounded-tl-sm';
+    bbl.style = 'box-shadow:0 1px 4px rgba(0,0,0,.06);';
+    if (isHtml) bbl.innerHTML = content; else bbl.textContent = content;
   }
+
+  wrap.appendChild(bbl);
+  log.appendChild(wrap);
+  log.scrollTop = log.scrollHeight;
+  return bbl;
+}
+
+function appendTyping(logId) {
+  const log = $(logId);
+  const wrap = document.createElement('div');
+  wrap.className = 'msg-row flex justify-start';
+  wrap.id = `typing-${logId}`;
+  wrap.innerHTML = `<div class="bg-white border border-slate-200 px-4 py-3 rounded-2xl rounded-tl-sm flex gap-1 items-center" style="box-shadow:0 1px 4px rgba(0,0,0,.06);">
+    <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+  </div>`;
+  log.appendChild(wrap);
+  log.scrollTop = log.scrollHeight;
+}
+function removeTyping(logId) { const el = $(`typing-${logId}`); if (el) el.remove(); }
+
+// ── History ────────────────────────────────────────────────────────────
+async function refreshHistory() {
+  const tab = S.tab;
+  const histList = $('hist-list');
+  const histCount = $('hist-count');
+  if (tab === 'hubspot') { histList.innerHTML = ''; histCount.textContent = '0'; return; }
+
+  const prefix = tab === 'proposal' ? '/api/proposal' : '/api/websearch';
+  try {
+    const r = await fetch(`${prefix}/chats`);
+    const d = await r.json();
+    const chats = d.chats || [];
+    histCount.textContent = chats.length;
+    histList.innerHTML = '';
+    if (!chats.length) {
+      histList.innerHTML = '<p class="text-xs text-slate-400 text-center py-6">No chats yet</p>';
+      return;
+    }
+    chats.forEach(chat => {
+      const btn = document.createElement('button');
+      const active = chat.id === S[tab].chatId;
+      btn.className = `hist-item w-full flex items-start gap-2 px-3 py-2 rounded-xl text-left ${active ? 'active' : ''}`;
+      btn.innerHTML = `
+        <div class="w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0 ${active ? 'bg-blue-500' : 'bg-slate-300'}"></div>
+        <div class="min-w-0 flex-1">
+          <div class="hist-title text-xs truncate ${active ? 'text-blue-700 font-semibold' : 'text-slate-600 font-medium'}">${esc(chat.title || 'New Chat')}</div>
+          <div class="text-xs text-slate-400" style="font-size:10px;">${new Date(chat.created_at).toLocaleDateString()}</div>
+        </div>`;
+      btn.onclick = () => loadChat(tab, chat.id);
+      histList.appendChild(btn);
+    });
+  } catch { histList.innerHTML = '<p class="text-xs text-red-400 text-center py-4">Failed to load</p>'; }
+}
+
+async function loadChat(tab, chatId) {
+  const prefix = tab === 'proposal' ? '/api/proposal' : '/api/websearch';
+  const logId = tab === 'proposal' ? 'proposal-log' : 'websearch-log';
+  try {
+    const r = await fetch(`${prefix}/chats/${chatId}`);
+    const d = await r.json();
+    S[tab].chatId = chatId;
+    if (tab === 'proposal') {
+      $('proposal-title').textContent = d.chat.title || 'Proposal Evaluator';
+      if (d.chat.last_upload_name) {
+        $('proposal-badge').classList.remove('hidden');
+        $('proposal-badge').classList.add('flex');
+        $('proposal-badge-name').textContent = d.chat.last_upload_name;
+      }
+    }
+    $(logId).innerHTML = '';
+    (d.messages || []).forEach(m =>
+      appendBubble(logId, m.role, m.role === 'assistant' ? renderMd(m.content) : m.content, m.role === 'assistant')
+    );
+    refreshHistory();
+  } catch(e) { console.error(e); }
+}
+
+async function createChat(tab) {
+  const prefix = tab === 'proposal' ? '/api/proposal' : '/api/websearch';
+  const r = await fetch(`${prefix}/chats`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({title:'New Chat'}) });
+  const d = await r.json();
+  S[tab].chatId = d.id;
+  await refreshHistory();
+  return d.id;
+}
+
+// ── New chat / Clear ───────────────────────────────────────────────────
+$('btn-new-chat').onclick = async () => {
+  const tab = S.tab;
+  if (tab === 'hubspot') return;
+  S[tab].chatId = null;
+  const logId = tab === 'proposal' ? 'proposal-log' : 'websearch-log';
+  $(logId).innerHTML = '';
+  if (tab === 'proposal') {
+    $('proposal-title').textContent = 'Proposal Evaluator';
+    $('proposal-badge').classList.add('hidden');
+    $('proposal-file-label').textContent = 'Click or drag to upload PDF / PPTX / DOCX';
+    $('proposal-file').value = '';
+  }
+  await createChat(tab);
 };
 
-chatForm.addEventListener('submit', async (event) => {
-  event.preventDefault();
-  await sendMessage();
+$('btn-clear').onclick = async () => {
+  const tab = S.tab;
+  if (tab === 'hubspot') return;
+  if (!confirm('Delete all chats in this tab?')) return;
+  const prefix = tab === 'proposal' ? '/api/proposal' : '/api/websearch';
+  const r = await fetch(`${prefix}/chats`);
+  const d = await r.json();
+  await Promise.all((d.chats || []).map(c => fetch(`${prefix}/chats/${c.id}`, { method:'DELETE' })));
+  S[tab].chatId = null;
+  const logId = tab === 'proposal' ? 'proposal-log' : 'websearch-log';
+  $(logId).innerHTML = '';
+  refreshHistory();
+};
+
+// ── File input ─────────────────────────────────────────────────────────
+$('proposal-file').onchange = e => {
+  const f = e.target.files[0];
+  $('proposal-file-label').textContent = f ? `📎 ${f.name}` : 'Click or drag to upload PDF / PPTX / DOCX';
+};
+
+const uploadZone = $('proposal-upload-zone');
+uploadZone.addEventListener('dragover', e => { e.preventDefault(); uploadZone.classList.add('drag'); });
+uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('drag'));
+uploadZone.addEventListener('drop', e => {
+  e.preventDefault(); uploadZone.classList.remove('drag');
+  const f = e.dataTransfer.files[0];
+  if (f) { const dt = new DataTransfer(); dt.items.add(f); $('proposal-file').files = dt.files;
+           $('proposal-file-label').textContent = `📎 ${f.name}`; }
 });
 
-newChatButton.addEventListener('click', async () => {
-  currentChatId = null;
-  chatLog.innerHTML = '';
-  chatTitle.textContent = 'New Chat';
-  await createChat();
+// ── Auto-resize ────────────────────────────────────────────────────────
+['proposal-input','websearch-input'].forEach(id => {
+  const el = $(id);
+  el.addEventListener('input', () => autoResize(el));
+  el.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); id === 'proposal-input' ? sendProposal() : sendWebSearch(); }
+  });
 });
 
-modeSelect.addEventListener('change', updateModeVisibility);
-updateModeVisibility();
-fetchChats();
+// ── Send: Proposal ─────────────────────────────────────────────────────
+async function sendProposal() {
+  const inp = $('proposal-input');
+  const txt = inp.value.trim();
+  const file = $('proposal-file').files[0];
+  if (!txt && !file) return;
+  if (!S.proposal.chatId) await createChat('proposal');
+
+  const display = txt || 'evaluate';
+  appendBubble('proposal-log', 'user', display);
+  appendTyping('proposal-log');
+  inp.value = ''; autoResize(inp);
+  $('proposal-status').textContent = 'Processing…';
+
+  const fd = new FormData();
+  fd.append('input_text', display);
+  if (file) fd.append('file', file);
+
+  try {
+    const r = await fetch(`/api/proposal/chats/${S.proposal.chatId}/messages`, { method:'POST', body:fd });
+    const d = await r.json();
+    removeTyping('proposal-log');
+    if (d.output_text) appendBubble('proposal-log', 'assistant', renderMd(d.output_text), true);
+    if (d.upload_status?.filename) {
+      $('proposal-badge').classList.remove('hidden'); $('proposal-badge').classList.add('flex');
+      $('proposal-badge-name').textContent = d.upload_status.filename;
+      $('proposal-file').value = ''; $('proposal-file-label').textContent = 'Click or drag to upload PDF / PPTX / DOCX';
+    }
+    if (d.chat?.title) $('proposal-title').textContent = d.chat.title;
+    $('proposal-status').textContent = 'Ready';
+    refreshHistory();
+  } catch(e) { removeTyping('proposal-log'); appendBubble('proposal-log','assistant','Error: '+e.message); $('proposal-status').textContent='Error'; }
+}
+$('proposal-send').onclick = sendProposal;
+
+// ── Send: Web Search ───────────────────────────────────────────────────
+async function sendWebSearch() {
+  const inp = $('websearch-input');
+  const txt = inp.value.trim();
+  if (!txt) return;
+  if (!S.websearch.chatId) await createChat('websearch');
+
+  appendBubble('websearch-log', 'user', txt);
+  appendTyping('websearch-log');
+  inp.value = ''; autoResize(inp);
+  $('websearch-status').textContent = 'Searching…';
+
+  try {
+    const r = await fetch(`/api/websearch/chats/${S.websearch.chatId}/messages`, {
+      method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({input_text:txt})
+    });
+    const d = await r.json();
+    removeTyping('websearch-log');
+    if (d.output_text) appendBubble('websearch-log','assistant',renderMd(d.output_text),true);
+    $('websearch-status').textContent = 'Ready';
+    refreshHistory();
+  } catch(e) { removeTyping('websearch-log'); appendBubble('websearch-log','assistant','Error: '+e.message); $('websearch-status').textContent='Error'; }
+}
+$('websearch-send').onclick = sendWebSearch;
+
+// ── Init ───────────────────────────────────────────────────────────────
+refreshHistory();
 </script>
 </body>
 </html>

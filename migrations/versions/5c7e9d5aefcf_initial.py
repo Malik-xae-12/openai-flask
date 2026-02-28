@@ -1,8 +1,8 @@
-"""Initial migration
+"""initial
 
-Revision ID: 34debe5b73c5
+Revision ID: 5c7e9d5aefcf
 Revises: 
-Create Date: 2026-02-27 12:41:32.766140
+Create Date: 2026-03-01 00:36:15.685060
 
 """
 from alembic import op
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = '34debe5b73c5'
+revision = '5c7e9d5aefcf'
 down_revision = None
 branch_labels = None
 depends_on = None
@@ -25,6 +25,7 @@ def upgrade():
     sa.Column('context_text', sa.Text(), nullable=False),
     sa.Column('last_upload_name', sa.String(length=255), nullable=True),
     sa.Column('openai_file_id', sa.String(length=255), nullable=True),
+    sa.Column('vector_store_id', sa.String(length=255), nullable=True),
     sa.Column('created_at', sa.DateTime(), nullable=False),
     sa.PrimaryKeyConstraint('id')
     )
