@@ -3,299 +3,481 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>UBTI AI Assistant</title>
-  <script src="https://cdn.tailwindcss.com"></script>
+  <title>UBTI AI Powered Assistant</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
-
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          fontFamily: {
-            sans: ['Inter', 'sans-serif'],
-            mono: ['JetBrains Mono', 'monospace'],
-          },
-        },
-      },
-    }
-  </script>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
 
   <style>
-    *, *::before, *::after { box-sizing: border-box; }
-    html, body { height: 100%; margin: 0; font-family: 'Inter', sans-serif; background: #f1f5f9; }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-    /* ── Scrollbar ── */
-    ::-webkit-scrollbar { width: 4px; height: 4px; }
+    :root {
+      --bg:         #0b0d12;
+      --rail-bg:    #0f1117;
+      --panel-bg:   #13161e;
+      --chat-bg:    #181c27;
+      --surf:       #1e2233;
+      --surf2:      #252b3d;
+      --border:     rgba(255,255,255,0.07);
+      --border2:    rgba(255,255,255,0.12);
+
+      --blue:       #4f6ef7;
+      --blue-dim:   rgba(79,110,247,0.18);
+      --blue-glow:  rgba(79,110,247,0.35);
+      --violet:     #8b5cf6;
+      --orange:     #f97316;
+      --orange-dim: rgba(249,115,22,0.15);
+      --red:        #ef4444;
+      --red-dim:    rgba(239,68,68,0.13);
+
+      --t1: #eef0fb;
+      --t2: #9aa3c2;
+      --t3: #4d5475;
+
+      font-family: 'Plus Jakarta Sans', sans-serif;
+    }
+
+    html, body { height: 100%; overflow: hidden; background: var(--bg); color: var(--t1); }
+
+    ::-webkit-scrollbar { width: 3px; }
     ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb { background: var(--surf2); border-radius: 4px; }
 
-    /* ── Tab active state ── */
-    .tab-btn { transition: all 0.18s ease; }
-    .tab-btn.active { background: #eff6ff; color: #1d4ed8; border-color: #bfdbfe !important; }
-    .tab-btn.active .tab-dot { background: #2563eb; }
-    .tab-btn.active .tab-label { color: #1e40af; font-weight: 600; }
-    .tab-btn.active .tab-sub { color: #3b82f6; }
+    /* ══ LAYOUT ══ */
+    .app { display: flex; height: 100vh; }
 
-    /* ── History item ── */
-    .hist-item { transition: all 0.15s ease; border: 1px solid transparent; }
-    .hist-item:hover { background: #f8fafc; border-color: #e2e8f0; }
-    .hist-item.active { background: #eff6ff; border-color: #bfdbfe; }
-    .hist-item.active .hist-title { color: #1e40af; }
+    /* ── RAIL ── */
+    .rail {
+      width: 60px; background: var(--rail-bg);
+      border-right: 1px solid var(--border);
+      display: flex; flex-direction: column; align-items: center;
+      padding: 14px 0 18px; gap: 2px; flex-shrink: 0; z-index: 10;
+    }
+    .rail-logo {
+      width: 34px; height: 34px; border-radius: 10px;
+      background: linear-gradient(135deg, var(--blue), var(--violet));
+      display: flex; align-items: center; justify-content: center;
+      margin-bottom: 18px; box-shadow: 0 4px 16px var(--blue-glow);
+      flex-shrink: 0;
+    }
+    .rail-btn {
+      width: 40px; height: 40px; border-radius: 11px;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; border: 1px solid transparent; background: transparent;
+      position: relative; transition: all 0.16s ease; color: var(--t3);
+    }
+    .rail-btn:hover { background: var(--surf); color: var(--t2); }
+    .rail-btn.active { background: var(--blue-dim); border-color: rgba(79,110,247,0.3); color: var(--blue); }
+    .rail-tooltip {
+      position: absolute; left: calc(100% + 10px); top: 50%; transform: translateY(-50%) translateX(-4px);
+      background: var(--surf2); color: var(--t1);
+      font-size: 11px; font-weight: 600; white-space: nowrap;
+      padding: 5px 10px; border-radius: 7px;
+      pointer-events: none; opacity: 0; transition: all 0.15s;
+      border: 1px solid var(--border2); z-index: 100;
+    }
+    .rail-btn:hover .rail-tooltip { opacity: 1; transform: translateY(-50%) translateX(0); }
+    .rail-pip {
+      position: absolute; top: 7px; right: 7px;
+      width: 6px; height: 6px; background: var(--orange); border-radius: 50%;
+      box-shadow: 0 0 6px rgba(249,115,22,0.7);
+    }
+    .rail-divider { width: 26px; height: 1px; background: var(--border); margin: 8px 0; }
 
-    /* ── Tab panel visibility ── */
-    .tab-panel { display: none; }
-    .tab-panel.active { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+    /* ── HIST PANEL ── */
+    .hist-panel {
+      width: 238px; background: var(--panel-bg);
+      border-right: 1px solid var(--border);
+      display: flex; flex-direction: column; flex-shrink: 0;
+      transition: width 0.24s cubic-bezier(.4,0,.2,1), opacity 0.2s;
+      overflow: hidden;
+    }
+    .hist-panel.collapsed { width: 0; opacity: 0; pointer-events: none; }
 
-    /* ── Typing animation ── */
-    .dot { width: 6px; height: 6px; border-radius: 50%; background: #94a3b8;
-           display: inline-block; animation: bounce 1.3s ease infinite; }
-    .dot:nth-child(2) { animation-delay: 0.15s; }
-    .dot:nth-child(3) { animation-delay: 0.3s; }
-    @keyframes bounce { 0%,60%,100% { transform: translateY(0); } 30% { transform: translateY(-5px); } }
+    .hist-header { padding: 14px 12px 10px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+    .hist-top-row {
+      display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;
+    }
+    .hist-module-label { font-size: 10px; font-weight: 700; color: var(--t3); letter-spacing: 0.08em; text-transform: uppercase; }
+    .hist-count-badge { font-size: 10px; font-weight: 700; color: var(--t3); background: var(--surf); padding: 2px 8px; border-radius: 20px; }
 
-    /* ── Message entrance ── */
-    .msg-row { animation: msgIn 0.25s ease forwards; }
-    @keyframes msgIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+    .hist-btn-row { display: flex; gap: 5px; margin-bottom: 10px; }
+    .hbtn {
+      flex: 1; display: flex; align-items: center; justify-content: center; gap: 4px;
+      padding: 7px 6px; border-radius: 7px; font-size: 11px; font-weight: 600;
+      cursor: pointer; border: 1px solid var(--border); background: var(--surf);
+      color: var(--t2); transition: all 0.14s; font-family: inherit; white-space: nowrap;
+    }
+    .hbtn:hover { background: var(--surf2); color: var(--t1); border-color: var(--border2); }
+    .hbtn.primary { background: var(--blue-dim); border-color: rgba(79,110,247,0.3); color: #93aaff; }
+    .hbtn.primary:hover { background: rgba(79,110,247,0.26); }
+    .hbtn.danger { background: var(--red-dim); border-color: rgba(239,68,68,0.28); color: var(--red); }
+    .hbtn.danger:hover { background: rgba(239,68,68,0.22); }
 
-    /* ── Textarea ── */
-    textarea { resize: none; overflow: hidden; min-height: 42px; }
+    .hist-search-wrap { position: relative; }
+    .hist-search-wrap svg { position: absolute; left: 9px; top: 50%; transform: translateY(-50%); color: var(--t3); pointer-events: none; }
+    .hist-search-inp {
+      width: 100%; background: var(--surf); border: 1px solid var(--border);
+      border-radius: 7px; color: var(--t1); font-size: 12px; font-family: inherit;
+      padding: 7px 10px 7px 28px; outline: none; transition: border-color 0.14s;
+    }
+    .hist-search-inp:focus { border-color: rgba(79,110,247,0.4); }
+    .hist-search-inp::placeholder { color: var(--t3); }
 
-    /* ── Markdown table ── */
-    .md-table { width: 100%; border-collapse: collapse; font-size: 0.78rem; margin-top: 6px; }
-    .md-table th { background: #f1f5f9; padding: 7px 10px; text-align: left; font-weight: 600;
-                   color: #374151; border: 1px solid #e2e8f0; font-size: 0.75rem; }
-    .md-table td { padding: 6px 10px; border: 1px solid #e2e8f0; color: #374151; vertical-align: top; }
-    .md-table tr:hover td { background: #f8fafc; }
+    .hist-list { flex: 1; overflow-y: auto; padding: 6px; }
+    .hist-item {
+      display: flex; align-items: flex-start; gap: 8px;
+      padding: 8px 9px; border-radius: 7px; cursor: pointer;
+      border: 1px solid transparent; transition: all 0.13s; margin-bottom: 2px;
+    }
+    .hist-item:hover { background: var(--surf); border-color: var(--border); }
+    .hist-item.active { background: var(--blue-dim); border-color: rgba(79,110,247,0.26); }
+    .hist-item-icon {
+      width: 26px; height: 26px; border-radius: 7px; background: var(--surf2);
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px;
+    }
+    .hist-item.active .hist-item-icon { background: rgba(79,110,247,0.22); }
+    .hist-item-title { font-size: 12px; font-weight: 600; color: var(--t2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .hist-item.active .hist-item-title { color: var(--t1); }
+    .hist-item-time { font-size: 10px; color: var(--t3); margin-top: 2px; }
 
-    /* ── Upload zone ── */
-    .upload-zone { border: 2px dashed #cbd5e1; transition: all 0.2s; cursor: pointer; }
-    .upload-zone:hover, .upload-zone.drag { border-color: #60a5fa; background: #f0f9ff; }
+    .hist-empty { display: flex; flex-direction: column; align-items: center; padding: 36px 20px; gap: 8px; color: var(--t3); text-align: center; }
+    .hist-empty p { font-size: 12px; line-height: 1.5; }
 
-    /* ── Scrollable log ── */
-    .chat-log { flex: 1; overflow-y: auto; }
+    .hist-foot { padding: 8px; border-top: 1px solid var(--border); flex-shrink: 0; }
+
+    /* ── MAIN ── */
+    .main { flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+
+    /* topbar */
+    .chat-topbar {
+      background: var(--panel-bg); border-bottom: 1px solid var(--border);
+      padding: 11px 18px; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0;
+    }
+    .ctb-left { display: flex; align-items: center; gap: 10px; }
+    .ctb-icon { width: 32px; height: 32px; border-radius: 9px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .ctb-title { font-size: 14px; font-weight: 700; color: var(--t1); }
+    .ctb-sub { font-size: 11px; color: var(--t3); margin-top: 1px; }
+    .ctb-right { display: flex; align-items: center; gap: 7px; }
+
+    .badge { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; border: 1px solid; }
+    .badge-file { background: var(--blue-dim); border-color: rgba(79,110,247,0.3); color: #93aaff; }
+    .badge-soon { background: var(--orange-dim); border-color: rgba(249,115,22,0.3); color: #fba35a; }
+
+    /* chat log */
+    .chat-log { flex: 1; overflow-y: auto; padding: 20px 22px 10px; background: var(--chat-bg); display: flex; flex-direction: column; gap: 14px; }
+
+    .welcome-screen { flex: 1; display: flex; align-items: center; justify-content: center; }
+    .welcome-inner { text-align: center; max-width: 320px; }
+    .welcome-icon { width: 58px; height: 58px; border-radius: 17px; display: flex; align-items: center; justify-content: center; margin: 0 auto 14px; }
+    .welcome-title { font-size: 17px; font-weight: 800; color: var(--t1); margin-bottom: 7px; }
+    .welcome-sub { font-size: 12px; color: var(--t3); line-height: 1.65; }
+    .welcome-chips { display: flex; flex-wrap: wrap; gap: 7px; justify-content: center; margin-top: 18px; }
+    .welcome-chip { padding: 5px 13px; border-radius: 20px; font-size: 11px; font-weight: 600; background: var(--surf); border: 1px solid var(--border2); color: var(--t2); cursor: pointer; transition: all 0.13s; }
+    .welcome-chip:hover { background: var(--surf2); color: var(--t1); }
+
+    /* messages */
+    .msg-row { display: flex; gap: 9px; animation: msgIn 0.2s ease; }
+    .msg-row.user { flex-direction: row-reverse; }
+    @keyframes msgIn { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
+
+    .msg-avatar { width: 28px; height: 28px; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; align-self: flex-end; }
+    .msg-avatar.ai { background: var(--blue-dim); border: 1px solid rgba(79,110,247,0.22); }
+    .msg-avatar.uav { background: var(--surf2); border: 1px solid var(--border2); }
+
+    .msg-bubble { max-width: 70%; padding: 10px 14px; border-radius: 15px; font-size: 13px; line-height: 1.65; }
+    .msg-bubble.ai { background: var(--surf); border: 1px solid var(--border2); color: var(--t1); border-bottom-left-radius: 4px; }
+    .msg-bubble.user { background: var(--blue); color: #fff; border-bottom-right-radius: 4px; box-shadow: 0 4px 14px var(--blue-glow); }
+
+    .file-chip-user { display: inline-flex; align-items: center; gap: 5px; padding: 5px 10px; background: rgba(255,255,255,0.15); border-radius: 7px; border: 1px solid rgba(255,255,255,0.18); font-size: 11px; font-weight: 600; margin-bottom: 5px; }
+    .file-chip-ai { display: inline-flex; align-items: center; gap: 5px; padding: 4px 9px; background: var(--blue-dim); border: 1px solid rgba(79,110,247,0.28); border-radius: 6px; font-size: 11px; font-weight: 600; color: #93aaff; margin-bottom: 7px; }
+
+    .typing-bub { display: flex; align-items: center; gap: 4px; padding: 11px 14px; background: var(--surf); border: 1px solid var(--border2); border-radius: 15px; border-bottom-left-radius: 4px; }
+    .dot { width: 5px; height: 5px; border-radius: 50%; background: var(--t3); animation: bop 1.2s ease infinite; }
+    .dot:nth-child(2){animation-delay:.15s} .dot:nth-child(3){animation-delay:.3s}
+    @keyframes bop { 0%,60%,100%{transform:translateY(0)} 30%{transform:translateY(-5px)} }
+
+    /* table */
+    .md-table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 5px; }
+    .md-table th { background: var(--surf2); padding: 7px 11px; text-align: left; font-weight: 700; color: var(--t2); border: 1px solid var(--border2); font-size: 11px; }
+    .md-table td { padding: 6px 11px; border: 1px solid var(--border); color: var(--t1); vertical-align: top; }
+    .md-table tr:hover td { background: var(--surf2); }
+
+    /* composer */
+    .composer-wrap { background: var(--panel-bg); border-top: 1px solid var(--border); padding: 10px 18px 14px; flex-shrink: 0; }
+
+    .attach-pill { display: none; align-items: center; gap: 7px; margin-bottom: 8px; padding: 5px 11px; background: var(--blue-dim); border: 1px solid rgba(79,110,247,0.28); border-radius: 7px; width: fit-content; }
+    .attach-pill.show { display: flex; }
+    .attach-pill-name { font-size: 11px; font-weight: 600; color: #93aaff; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .attach-pill-rm { width: 15px; height: 15px; border-radius: 50%; background: rgba(79,110,247,0.18); display: flex; align-items: center; justify-content: center; cursor: pointer; color: #93aaff; font-size: 9px; border: none; flex-shrink: 0; transition: background 0.12s; }
+    .attach-pill-rm:hover { background: rgba(239,68,68,0.2); color: var(--red); }
+
+    .composer { display: flex; align-items: flex-end; gap: 7px; }
+    .composer-inner {
+      flex: 1; display: flex; align-items: flex-end; gap: 7px;
+      background: var(--surf); border: 1px solid var(--border2); border-radius: 13px;
+      padding: 7px 7px 7px 12px; transition: border-color 0.14s, box-shadow 0.14s;
+    }
+    .composer-inner:focus-within { border-color: rgba(79,110,247,0.5); box-shadow: 0 0 0 3px rgba(79,110,247,0.1); }
+
+    .attach-btn {
+      width: 30px; height: 30px; border-radius: 7px; background: var(--surf2); border: 1px solid var(--border);
+      color: var(--t3); display: flex; align-items: center; justify-content: center;
+      cursor: pointer; flex-shrink: 0; transition: all 0.13s;
+    }
+    .attach-btn:hover { color: var(--t2); border-color: var(--border2); }
+    .attach-btn.has-file { background: var(--blue-dim); border-color: rgba(79,110,247,0.38); color: var(--blue); }
+
+    .composer-ta {
+      flex: 1; background: transparent; border: none; outline: none;
+      color: var(--t1); font-family: inherit; font-size: 13px; line-height: 1.5;
+      resize: none; min-height: 30px; max-height: 120px; overflow-y: auto; padding: 4px 0;
+    }
+    .composer-ta::placeholder { color: var(--t3); }
+
+    .send-btn {
+      width: 34px; height: 34px; border-radius: 9px; background: var(--blue); border: none;
+      color: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; box-shadow: 0 3px 12px var(--blue-glow); transition: all 0.13s;
+    }
+    .send-btn:hover { transform: translateY(-1px); box-shadow: 0 5px 18px var(--blue-glow); }
+
+    .composer-hint { font-size: 10px; color: var(--t3); margin-top: 6px; text-align: right; }
+
+    /* tab panels */
+    .tab-panel { display: none; flex: 1; flex-direction: column; min-height: 0; }
+    .tab-panel.active { display: flex; }
+
+    /* hubspot pane */
+    .hs-pane { flex: 1; display: flex; align-items: center; justify-content: center; background: var(--chat-bg); }
+    .hs-card { max-width: 350px; width: 100%; text-align: center; padding: 36px 22px; }
+    .hs-icon { width: 64px; height: 64px; border-radius: 19px; margin: 0 auto 18px; background: var(--orange-dim); border: 1px solid rgba(249,115,22,0.28); display: flex; align-items: center; justify-content: center; }
+    .hs-title { font-size: 19px; font-weight: 800; color: var(--t1); margin-bottom: 7px; }
+    .hs-sub { font-size: 12px; color: var(--t3); line-height: 1.65; margin-bottom: 24px; }
+    .hs-features { display: flex; flex-direction: column; gap: 9px; text-align: left; }
+    .hs-feat { display: flex; align-items: center; gap: 11px; background: var(--surf); border: 1px solid var(--border); border-radius: 11px; padding: 11px 13px; }
+    .hs-feat-icon { width: 30px; height: 30px; border-radius: 8px; background: var(--orange-dim); border: 1px solid rgba(249,115,22,0.22); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .hs-feat-name { font-size: 12px; font-weight: 700; color: var(--t2); }
+    .hs-feat-sub { font-size: 11px; color: var(--t3); margin-top: 1px; }
+
+    /* anim */
+    @keyframes fadeUp { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+    .rail { animation: fadeUp 0.3s ease 0s both; }
+    .hist-panel { animation: fadeUp 0.3s ease 0.05s both; }
+    .main { animation: fadeUp 0.3s ease 0.1s both; }
   </style>
 </head>
 
-<body class="flex flex-col" style="height:100vh; overflow:hidden;">
+<body>
+<div class="app">
 
-<!-- ════════════════ TOPBAR ════════════════ -->
-<header class="flex-shrink-0 bg-white border-b border-slate-200 px-5 py-3 flex items-center justify-between" style="box-shadow:0 1px 3px rgba(0,0,0,0.07);">
-  <div class="flex items-center gap-3">
-    <div class="w-8 h-8 rounded-xl flex items-center justify-center" style="background:linear-gradient(135deg,#2563eb,#1d4ed8);box-shadow:0 4px 12px rgba(37,99,235,.35);">
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+  <!-- ════ RAIL ════ -->
+  <nav class="rail">
+    <div class="rail-logo">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
     </div>
-    <div>
-      <div class="text-xs font-medium text-slate-400 tracking-widest uppercase" style="font-size:10px;">Enterprise Console</div>
-      <div class="text-sm font-bold text-slate-800 leading-none" style="font-weight:700;">UBTI AI Powered Assistant</div>
-    </div>
-  </div>
-  <div class="flex items-center gap-2">
-    <button id="btn-reset-files"
-      class="flex items-center gap-1.5 text-xs font-semibold text-red-600 bg-red-50 hover:bg-red-100 px-2.5 py-1 rounded-full border border-red-200 transition-all">
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <polyline points="3,6 5,6 21,6"/>
-        <path d="M19,6v14a2,2 0 01-2,2H7a2,2 0 01-2-2V6m3,0V4a2,2 0 012-2h4a2,2 0 012,2v2"/>
-      </svg>
-      Reset Files
+
+    <button class="rail-btn active" data-tab="proposal">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+      <span class="rail-tooltip">Proposal Evaluator</span>
     </button>
-    <button id="btn-new-chat"
-      class="text-xs font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-full border border-blue-200 transition-all">
-      + New Chat
+
+    <button class="rail-btn" data-tab="websearch">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+      <span class="rail-tooltip">Web Search</span>
     </button>
-  </div>
-</header>
 
-<!-- ════════════════ BODY ════════════════ -->
-<div class="flex flex-1 min-h-0">
+    <button class="rail-btn" data-tab="hubspot">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
+      <span class="rail-tooltip">HubSpot CRM</span>
+      <div class="rail-pip"></div>
+    </button>
 
-  <!-- ══ LEFT SIDEBAR ══ -->
-  <aside class="flex-shrink-0 bg-white border-r border-slate-200 flex flex-col" style="width:252px;box-shadow:1px 0 0 #e2e8f0;">
+    <div class="rail-divider" style="margin-top:auto;"></div>
 
-    <!-- Module tabs -->
-    <div class="p-3 border-b border-slate-100">
-      <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2 px-1" style="font-size:10px;">Modules</p>
-      <div class="space-y-0.5">
+    <button class="rail-btn">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+      <span class="rail-tooltip">Settings</span>
+    </button>
+  </nav>
 
-        <!-- Proposal -->
-        <button class="tab-btn active w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl border border-transparent text-left" data-tab="proposal">
-          <div class="tab-dot w-6 h-6 rounded-lg bg-slate-100 flex items-center justify-center flex-shrink-0 transition-all" style="background:#dbeafe;">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-          </div>
-          <div class="min-w-0">
-            <div class="tab-label text-xs text-slate-700 truncate" style="font-weight:600;">Proposal Evaluator</div>
-            <div class="tab-sub text-xs text-slate-400 truncate" style="font-size:10px;">Upload & analyse docs</div>
-          </div>
+  <!-- ════ HISTORY PANEL ════ -->
+  <div class="hist-panel" id="hist-panel">
+    <div class="hist-header">
+      <div class="hist-top-row">
+        <span class="hist-module-label" id="hist-module-label">Proposal</span>
+        <span class="hist-count-badge" id="hist-count">0</span>
+      </div>
+      <div class="hist-btn-row">
+        <button class="hbtn primary" id="btn-new-chat">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+          New Chat
         </button>
-
-        <!-- Web Search -->
-        <button class="tab-btn w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl border border-transparent text-left" data-tab="websearch">
-          <div class="tab-dot w-6 h-6 rounded-lg bg-slate-100 flex items-center justify-center flex-shrink-0 transition-all">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
-          </div>
-          <div class="min-w-0">
-            <div class="tab-label text-xs text-slate-600 truncate" style="font-weight:500;">Web Search</div>
-            <div class="tab-sub text-xs text-slate-400 truncate" style="font-size:10px;">Research & insights</div>
-          </div>
+        <button class="hbtn danger" id="btn-reset-files">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="3,6 5,6 21,6"/><path d="M19,6v14a2,2 0 01-2,2H7a2,2 0 01-2-2V6m3,0V4a2,2 0 012-2h4a2,2 0 012,2v2"/></svg>
+          Reset
         </button>
-
-        <!-- HubSpot -->
-        <button class="tab-btn w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl border border-transparent text-left" data-tab="hubspot">
-          <div class="tab-dot w-6 h-6 rounded-lg bg-slate-100 flex items-center justify-center flex-shrink-0 transition-all">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
-          </div>
-          <div class="min-w-0">
-            <div class="tab-label text-xs text-slate-600 truncate" style="font-weight:500;">HubSpot CRM</div>
-            <div class="tab-sub text-xs text-slate-400 truncate" style="font-size:10px;">Coming soon</div>
-          </div>
-        </button>
+      </div>
+      <div class="hist-search-wrap">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+        <input class="hist-search-inp" type="text" placeholder="Search chats…" id="hist-search-inp" />
       </div>
     </div>
 
-    <!-- History -->
-    <div class="flex items-center justify-between px-4 py-2 border-b border-slate-100">
-      <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider" style="font-size:10px;">History</span>
-      <span id="hist-count" class="text-xs text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded-full">0</span>
+    <div class="hist-list" id="hist-list">
+      <div class="hist-empty" id="hist-empty">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity=".4"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+        <p>No conversations yet.<br/>Start a new chat.</p>
+      </div>
     </div>
-    <div id="hist-list" class="flex-1 overflow-y-auto p-2 space-y-0.5"></div>
 
-    <!-- Clear -->
-    <div class="p-2 border-t border-slate-100">
-      <button id="btn-clear" class="w-full flex items-center justify-center gap-1.5 text-xs text-slate-400 hover:text-red-500 hover:bg-red-50 py-2 rounded-lg transition-all" style="font-weight:500;">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3,6 5,6 21,6"/><path d="M19,6v14a2,2 0 01-2,2H7a2,2 0 01-2-2V6m3,0V4a2,2 0 012-2h4a2,2 0 012,2v2"/></svg>
-        Clear History
+    <div class="hist-foot">
+      <button class="hbtn" id="btn-clear-all" style="width:100%;justify-content:center;">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="3,6 5,6 21,6"/><path d="M19,6v14a2,2 0 01-2,2H7a2,2 0 01-2-2V6m3,0V4a2,2 0 012-2h4a2,2 0 012,2v2"/></svg>
+        Clear All History
       </button>
     </div>
-  </aside>
+  </div>
 
-  <!-- ══ MAIN AREA ══ -->
-  <main class="flex-1 flex flex-col min-w-0 min-h-0">
+  <!-- ════ MAIN ════ -->
+  <main class="main">
 
-    <!-- ─── PROPOSAL PANEL ─── -->
+    <!-- ─ PROPOSAL ─ -->
     <div id="panel-proposal" class="tab-panel active">
-      <!-- Header -->
-      <div class="flex-shrink-0 bg-white border-b border-slate-200 px-5 py-3 flex items-center justify-between" style="box-shadow:0 1px 0 #f1f5f9;">
-        <div>
-          <h2 id="proposal-title" class="text-sm font-bold text-slate-800">Proposal Evaluator</h2>
-          <p class="text-xs text-slate-400 mt-0.5">Upload a document, then ask questions or type <code class="bg-slate-100 text-slate-600 px-1 rounded text-xs">evaluate</code></p>
+      <div class="chat-topbar">
+        <div class="ctb-left">
+          <div class="ctb-icon" style="background:var(--blue-dim);border:1px solid rgba(79,110,247,0.28);">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4f6ef7" stroke-width="2"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+          </div>
+          <div>
+            <div class="ctb-title" id="proposal-chat-title">Proposal Evaluator</div>
+            <div class="ctb-sub">Attach a doc, then ask questions or type <code style="background:var(--surf);padding:1px 5px;border-radius:4px;font-family:monospace;font-size:10px;">evaluate</code></div>
+          </div>
         </div>
-        <div id="proposal-badge" class="hidden items-center gap-1.5 bg-blue-50 border border-blue-200 text-blue-700 text-xs font-medium px-2.5 py-1 rounded-full">
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/></svg>
-          <span id="proposal-badge-name"></span>
+        <div class="ctb-right">
+          <div class="badge badge-file" id="prop-file-badge" style="display:none;">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/></svg>
+            <span id="prop-file-badge-name" style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></span>
+          </div>
         </div>
       </div>
 
-      <!-- Log -->
-      <div id="proposal-log" class="chat-log px-5 py-4 space-y-3 bg-slate-50">
-        <div class="flex justify-center py-10">
-          <div class="text-center max-w-xs">
-            <div class="w-12 h-12 rounded-2xl mx-auto mb-3 flex items-center justify-center" style="background:linear-gradient(135deg,#2563eb,#1d4ed8);box-shadow:0 6px 20px rgba(37,99,235,.3);">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+      <div class="chat-log" id="proposal-log">
+        <div class="welcome-screen" id="proposal-welcome">
+          <div class="welcome-inner">
+            <div class="welcome-icon" style="background:var(--blue-dim);border:1px solid rgba(79,110,247,0.28);">
+              <svg width="25" height="25" viewBox="0 0 24 24" fill="none" stroke="#4f6ef7" stroke-width="1.8"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
             </div>
-            <div class="text-sm font-bold text-slate-700 mb-1">Proposal Evaluator</div>
-            <div class="text-xs text-slate-400 leading-relaxed">Upload a PDF or PPTX, then ask questions or type <strong>evaluate</strong> for a scored assessment.</div>
+            <div class="welcome-title">Proposal Evaluator</div>
+            <div class="welcome-sub">Click the <strong style="color:var(--t2)">📎</strong> button to attach a PDF, PPTX, or DOCX — then ask questions or type <strong style="color:var(--t2)">evaluate</strong> for a full scored assessment.</div>
+            <div class="welcome-chips">
+              <div class="welcome-chip" onclick="fillInput('proposal','evaluate')">Evaluate proposal</div>
+              <div class="welcome-chip" onclick="fillInput('proposal','Summarise key points')">Summarise</div>
+              <div class="welcome-chip" onclick="fillInput('proposal','What are the risks?')">Identify risks</div>
+            </div>
           </div>
         </div>
       </div>
 
-      <!-- Input -->
-      <div class="flex-shrink-0 bg-white border-t border-slate-200 p-4">
-        <!-- Upload zone -->
-        <div id="proposal-upload-zone" class="upload-zone rounded-xl px-3 py-2.5 mb-3 flex items-center gap-2.5" onclick="document.getElementById('proposal-file').click()">
-          <div class="w-7 h-7 rounded-lg bg-slate-100 flex items-center justify-center flex-shrink-0">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17,8 12,3 7,8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-          </div>
-          <span id="proposal-file-label" class="text-xs text-slate-400">Click or drag to upload PDF / PPTX / DOCX</span>
-          <input id="proposal-file" type="file" accept=".pdf,.ppt,.pptx,.doc,.docx" class="hidden" />
+      <div class="composer-wrap">
+        <div class="attach-pill" id="prop-pill">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#93aaff" stroke-width="2.2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/></svg>
+          <span class="attach-pill-name" id="prop-pill-name"></span>
+          <button class="attach-pill-rm" id="prop-rm-file">✕</button>
         </div>
-        <!-- Composer -->
-        <div class="flex items-end gap-2">
-          <div class="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 focus-within:border-blue-400 focus-within:ring-2 focus-within:ring-blue-100 transition-all">
-            <textarea id="proposal-input" rows="1" placeholder="Ask a question or type 'evaluate'…" class="w-full bg-transparent text-sm text-slate-800 placeholder-slate-400 outline-none leading-relaxed"></textarea>
+        <div class="composer">
+          <div class="composer-inner">
+            <div class="attach-btn" id="prop-attach-btn" title="Attach file (PDF / PPTX / DOCX)">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg>
+            </div>
+            <textarea class="composer-ta" id="proposal-input" placeholder="Ask a question or type 'evaluate'…" rows="1"></textarea>
           </div>
-          <button id="proposal-send" class="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 text-white transition-all hover:-translate-y-0.5" style="background:linear-gradient(135deg,#2563eb,#1d4ed8);box-shadow:0 4px 12px rgba(37,99,235,.35);">
+          <button class="send-btn" id="proposal-send">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22,2 15,22 11,13 2,9"/></svg>
           </button>
         </div>
-        <div id="proposal-status" class="mt-1.5 text-xs text-slate-400 text-right">Ready</div>
+        <div class="composer-hint" id="proposal-status">Ready · Enter to send</div>
       </div>
     </div>
 
-    <!-- ─── WEB SEARCH PANEL ─── -->
+    <!-- ─ WEB SEARCH ─ -->
     <div id="panel-websearch" class="tab-panel">
-      <div class="flex-shrink-0 bg-white border-b border-slate-200 px-5 py-3">
-        <h2 class="text-sm font-bold text-slate-800">Web Search</h2>
-        <p class="text-xs text-slate-400 mt-0.5">Research companies, topics, or any question using live web data</p>
-      </div>
-      <div id="websearch-log" class="chat-log px-5 py-4 space-y-3 bg-slate-50">
-        <div class="flex justify-center py-10">
-          <div class="text-center max-w-xs">
-            <div class="w-12 h-12 rounded-2xl mx-auto mb-3 flex items-center justify-center" style="background:linear-gradient(135deg,#7c3aed,#6d28d9);box-shadow:0 6px 20px rgba(124,58,237,.3);">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
-            </div>
-            <div class="text-sm font-bold text-slate-700 mb-1">Web Search Agent</div>
-            <div class="text-xs text-slate-400 leading-relaxed">Ask about any company, market, or topic. Results are shown in a structured table with source links.</div>
+      <div class="chat-topbar">
+        <div class="ctb-left">
+          <div class="ctb-icon" style="background:rgba(139,92,246,0.14);border:1px solid rgba(139,92,246,0.28);">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+          </div>
+          <div>
+            <div class="ctb-title">Web Search</div>
+            <div class="ctb-sub">Research companies, topics, or any question using live web data</div>
           </div>
         </div>
       </div>
-      <div class="flex-shrink-0 bg-white border-t border-slate-200 p-4">
-        <div class="flex items-end gap-2">
-          <div class="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 focus-within:border-violet-400 focus-within:ring-2 focus-within:ring-violet-100 transition-all">
-            <textarea id="websearch-input" rows="1" placeholder="Search for a company, topic, or question…" class="w-full bg-transparent text-sm text-slate-800 placeholder-slate-400 outline-none leading-relaxed"></textarea>
+      <div class="chat-log" id="websearch-log">
+        <div class="welcome-screen" id="websearch-welcome">
+          <div class="welcome-inner">
+            <div class="welcome-icon" style="background:rgba(139,92,246,0.14);border:1px solid rgba(139,92,246,0.28);">
+              <svg width="25" height="25" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="1.8"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+            </div>
+            <div class="welcome-title">Web Search Agent</div>
+            <div class="welcome-sub">Ask about any company, market, or topic. Results come back as clean structured tables with sources.</div>
+            <div class="welcome-chips">
+              <div class="welcome-chip" onclick="fillInput('websearch','Latest AI trends 2025')">AI trends 2025</div>
+              <div class="welcome-chip" onclick="fillInput('websearch','Compare top CRM platforms')">Compare CRMs</div>
+              <div class="welcome-chip" onclick="fillInput('websearch','SaaS market analysis 2025')">SaaS market</div>
+            </div>
           </div>
-          <button id="websearch-send" class="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 text-white transition-all hover:-translate-y-0.5" style="background:linear-gradient(135deg,#7c3aed,#6d28d9);box-shadow:0 4px 12px rgba(124,58,237,.3);">
+        </div>
+      </div>
+      <div class="composer-wrap">
+        <div class="composer">
+          <div class="composer-inner" style="border-color:rgba(139,92,246,0.2);">
+            <textarea class="composer-ta" id="websearch-input" placeholder="Search for a company, topic, or question…" rows="1"></textarea>
+          </div>
+          <button class="send-btn" id="websearch-send" style="background:var(--violet);box-shadow:0 3px 12px rgba(139,92,246,0.4);">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22,2 15,22 11,13 2,9"/></svg>
           </button>
         </div>
-        <div id="websearch-status" class="mt-1.5 text-xs text-slate-400 text-right">Ready</div>
+        <div class="composer-hint" id="websearch-status">Ready · Enter to send</div>
       </div>
     </div>
 
-    <!-- ─── HUBSPOT PANEL ─── -->
+    <!-- ─ HUBSPOT ─ -->
     <div id="panel-hubspot" class="tab-panel">
-      <div class="flex-shrink-0 bg-white border-b border-slate-200 px-5 py-3">
-        <h2 class="text-sm font-bold text-slate-800">HubSpot CRM Integration</h2>
-        <p class="text-xs text-slate-400 mt-0.5">Connect your CRM for AI-powered contact and deal management</p>
-      </div>
-      <div class="flex-1 flex items-center justify-center px-6 py-8 bg-slate-50">
-        <div class="text-center max-w-sm w-full">
-          <div class="w-16 h-16 rounded-3xl mx-auto mb-5 flex items-center justify-center" style="background:linear-gradient(135deg,#f97316,#ea580c);box-shadow:0 8px 24px rgba(249,115,22,.3);">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.8"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
+      <div class="chat-topbar">
+        <div class="ctb-left">
+          <div class="ctb-icon" style="background:var(--orange-dim);border:1px solid rgba(249,115,22,0.28);">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f97316" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
           </div>
-          <div class="text-base font-bold text-slate-800 mb-2">HubSpot Integration</div>
-          <p class="text-xs text-slate-400 leading-relaxed mb-5">Connect your HubSpot CRM to manage contacts, deals, and pipelines directly from this console.</p>
-          <div class="space-y-2 text-left">
-            <!-- Feature rows -->
-            <div class="flex items-center gap-3 bg-white border border-slate-200 rounded-xl px-3.5 py-2.5">
-              <div class="w-7 h-7 rounded-lg bg-orange-100 flex items-center justify-center flex-shrink-0">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#ea580c" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
-              </div>
-              <div class="flex-1 min-w-0">
-                <div class="text-xs font-semibold text-slate-700">Contact Management</div>
-                <div class="text-xs text-slate-400">Sync and query CRM contacts with AI</div>
-              </div>
-              <span class="text-xs bg-amber-100 text-amber-600 px-2 py-0.5 rounded-full font-medium flex-shrink-0">Soon</span>
+          <div>
+            <div class="ctb-title">HubSpot CRM Integration</div>
+            <div class="ctb-sub">Connect your CRM for AI-powered contact and deal management</div>
+          </div>
+        </div>
+        <div class="badge badge-soon">Coming Soon</div>
+      </div>
+      <div class="hs-pane">
+        <div class="hs-card">
+          <div class="hs-icon">
+            <svg width="29" height="29" viewBox="0 0 24 24" fill="none" stroke="#f97316" stroke-width="1.7"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
+          </div>
+          <div class="hs-title">HubSpot Integration</div>
+          <div class="hs-sub">Connect your HubSpot CRM to manage contacts, deals, and pipelines directly from this console.</div>
+          <div class="hs-features">
+            <div class="hs-feat">
+              <div class="hs-feat-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#f97316" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg></div>
+              <div><div class="hs-feat-name">Contact Management</div><div class="hs-feat-sub">Sync and query CRM contacts with AI</div></div>
+              <div class="badge badge-soon" style="margin-left:auto;flex-shrink:0;">Soon</div>
             </div>
-            <div class="flex items-center gap-3 bg-white border border-slate-200 rounded-xl px-3.5 py-2.5">
-              <div class="w-7 h-7 rounded-lg bg-orange-100 flex items-center justify-center flex-shrink-0">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#ea580c" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
-              </div>
-              <div class="flex-1 min-w-0">
-                <div class="text-xs font-semibold text-slate-700">Deal Pipeline AI</div>
-                <div class="text-xs text-slate-400">AI insights and forecasting on deals</div>
-              </div>
-              <span class="text-xs bg-amber-100 text-amber-600 px-2 py-0.5 rounded-full font-medium flex-shrink-0">Soon</span>
+            <div class="hs-feat">
+              <div class="hs-feat-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#f97316" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></div>
+              <div><div class="hs-feat-name">Deal Pipeline AI</div><div class="hs-feat-sub">AI insights and forecasting on deals</div></div>
+              <div class="badge badge-soon" style="margin-left:auto;flex-shrink:0;">Soon</div>
             </div>
-            <div class="flex items-center gap-3 bg-white border border-slate-200 rounded-xl px-3.5 py-2.5">
-              <div class="w-7 h-7 rounded-lg bg-orange-100 flex items-center justify-center flex-shrink-0">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#ea580c" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
-              </div>
-              <div class="flex-1 min-w-0">
-                <div class="text-xs font-semibold text-slate-700">Email Automation</div>
-                <div class="text-xs text-slate-400">AI-drafted outreach sequences</div>
-              </div>
-              <span class="text-xs bg-amber-100 text-amber-600 px-2 py-0.5 rounded-full font-medium flex-shrink-0">Soon</span>
+            <div class="hs-feat">
+              <div class="hs-feat-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#f97316" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg></div>
+              <div><div class="hs-feat-name">Email Automation</div><div class="hs-feat-sub">AI-drafted outreach sequences</div></div>
+              <div class="badge badge-soon" style="margin-left:auto;flex-shrink:0;">Soon</div>
             </div>
           </div>
         </div>
@@ -305,9 +487,10 @@
   </main>
 </div>
 
-<!-- ════════════════ JAVASCRIPT ════════════════ -->
+<!-- Hidden file input -->
+<input type="file" id="file-input-hidden" accept=".pdf,.ppt,.pptx,.doc,.docx" style="display:none;" />
+
 <script>
-// ── Helpers ──────────────────────────────────────────────────────────────
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 
@@ -322,284 +505,262 @@ function parseMdTable(text) {
   const row = r => r.trim().replace(/^\||\|$/g,'').split('|').map(c => esc(c.trim()));
   const heads = row(lines[0]);
   const rows = lines.slice(2).map(row).filter(r => r.length > 1);
-  return `<table class="md-table"><thead><tr>${heads.map(h=>`<th>${h}</th>`).join('')}</tr></thead>`+
-         `<tbody>${rows.map(r=>`<tr>${r.map(c=>`<td>${c}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
+  return `<table class="md-table"><thead><tr>${heads.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${rows.map(r=>`<tr>${r.map(c=>`<td>${c}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
 }
 
 function renderMd(text) {
   if (!text) return '';
   const tbl = parseMdTable(text);
   if (tbl) return tbl;
-  if (text.includes('Evaluation Report')) {
-    return `<pre class="text-xs font-mono whitespace-pre-wrap leading-relaxed text-slate-700 bg-slate-50 rounded-lg p-3">${esc(text)}</pre>`;
-  }
-  return `<div class="text-sm leading-relaxed text-slate-700">${esc(text).replace(/\n/g,'<br/>')}</div>`;
+  return `<div style="font-size:13px;line-height:1.65;">${esc(text).replace(/\n/g,'<br/>')}</div>`;
 }
 
-// ── State ──────────────────────────────────────────────────────────────
-const S = {
-  tab: 'proposal',
-  proposal: { chatId: null },
-  websearch: { chatId: null },
-};
+function timeAgo(iso) {
+  const d = new Date(iso), now = new Date(), diff = (now-d)/1000;
+  if (diff < 60) return 'Just now';
+  if (diff < 3600) return Math.floor(diff/60)+'m ago';
+  if (diff < 86400) return Math.floor(diff/3600)+'h ago';
+  return d.toLocaleDateString();
+}
 
-// ── Tab switch ─────────────────────────────────────────────────────────
-document.querySelectorAll('.tab-btn').forEach(btn => {
+const S = { tab:'proposal', proposal:{chatId:null}, websearch:{chatId:null}, proposalFile:null };
+const MODULE_LABELS = {proposal:'Proposal', websearch:'Web Search', hubspot:'HubSpot'};
+
+// ── Tab switch ──
+document.querySelectorAll('.rail-btn[data-tab]').forEach(btn => {
   btn.addEventListener('click', () => {
-    S.tab = btn.dataset.tab;
-    document.querySelectorAll('.tab-btn').forEach(b => {
-      const on = b.dataset.tab === S.tab;
-      b.classList.toggle('active', on);
-      const dot = b.querySelector('.tab-dot');
-      if (dot) {
-        dot.style.background = on ? '#dbeafe' : '#f1f5f9';
-        dot.querySelectorAll('svg').forEach(s => s.setAttribute('stroke', on ? '#2563eb' : '#64748b'));
-      }
-    });
-    document.querySelectorAll('.tab-panel').forEach(p =>
-      p.classList.toggle('active', p.id === `panel-${S.tab}`)
-    );
-    refreshHistory();
+    const tab = btn.dataset.tab;
+    S.tab = tab;
+    document.querySelectorAll('.rail-btn[data-tab]').forEach(b => b.classList.toggle('active', b.dataset.tab===tab));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.id===`panel-${tab}`));
+    const hp = $('hist-panel');
+    if (tab==='hubspot') { hp.classList.add('collapsed'); }
+    else { hp.classList.remove('collapsed'); $('hist-module-label').textContent=MODULE_LABELS[tab]; refreshHistory(); }
   });
 });
 
-// ── Bubble append ──────────────────────────────────────────────────────
-function appendBubble(logId, role, content, isHtml = false) {
+// ── Bubbles ──
+function hideWelcome(tab) { const w=$(`${tab}-welcome`); if(w) w.style.display='none'; }
+
+function appendBubble(logId, role, content, fileName, isHtml=false) {
   const log = $(logId);
-  const wrap = document.createElement('div');
-  wrap.className = `msg-row flex ${role === 'user' ? 'justify-end' : 'justify-start'}`;
+  const row = document.createElement('div');
+  row.className = `msg-row ${role==='user'?'user':''}`;
 
-  const bbl = document.createElement('div');
-  if (role === 'user') {
-    bbl.className = 'max-w-xl text-sm text-white px-4 py-2.5 rounded-2xl rounded-tr-sm';
-    bbl.style = 'background:#2563eb;box-shadow:0 2px 8px rgba(37,99,235,.25);';
-    bbl.textContent = content;
-  } else {
-    bbl.className = 'max-w-2xl text-sm bg-white border border-slate-200 px-4 py-2.5 rounded-2xl rounded-tl-sm';
-    bbl.style = 'box-shadow:0 1px 4px rgba(0,0,0,.06);';
-    if (isHtml) bbl.innerHTML = content; else bbl.textContent = content;
-  }
+  const av = document.createElement('div');
+  av.className = `msg-avatar ${role==='user'?'uav':'ai'}`;
+  av.innerHTML = role==='user'
+    ? `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--t3)" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`
+    : `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#4f6ef7" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>`;
 
-  wrap.appendChild(bbl);
-  log.appendChild(wrap);
+  const bub = document.createElement('div');
+  bub.className = `msg-bubble ${role==='user'?'user':'ai'}`;
+
+  let inner = '';
+  if (fileName && role==='user') inner += `<div class="file-chip-user"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/></svg>${esc(fileName)}</div><br/>`;
+  if (fileName && role==='ai') inner += `<div class="file-chip-ai"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/></svg>Analysing: ${esc(fileName)}</div><br/>`;
+
+  if (isHtml) bub.innerHTML = inner + content;
+  else { if(inner) bub.innerHTML=inner; bub.appendChild(document.createTextNode(content)); }
+
+  row.appendChild(av); row.appendChild(bub);
+  log.appendChild(row);
   log.scrollTop = log.scrollHeight;
-  return bbl;
+  return bub;
 }
 
 function appendTyping(logId) {
-  const log = $(logId);
-  const wrap = document.createElement('div');
-  wrap.className = 'msg-row flex justify-start';
-  wrap.id = `typing-${logId}`;
-  wrap.innerHTML = `<div class="bg-white border border-slate-200 px-4 py-3 rounded-2xl rounded-tl-sm flex gap-1 items-center" style="box-shadow:0 1px 4px rgba(0,0,0,.06);">
-    <span class="dot"></span><span class="dot"></span><span class="dot"></span>
-  </div>`;
-  log.appendChild(wrap);
-  log.scrollTop = log.scrollHeight;
+  const log=$(logId), row=document.createElement('div');
+  row.className='msg-row'; row.id=`typing-${logId}`;
+  const av=document.createElement('div'); av.className='msg-avatar ai';
+  av.innerHTML=`<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#4f6ef7" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>`;
+  const bub=document.createElement('div'); bub.className='typing-bub';
+  bub.innerHTML=`<span class="dot"></span><span class="dot"></span><span class="dot"></span>`;
+  row.appendChild(av); row.appendChild(bub);
+  log.appendChild(row); log.scrollTop=log.scrollHeight;
 }
-function removeTyping(logId) { const el = $(`typing-${logId}`); if (el) el.remove(); }
+function removeTyping(logId){const e=$(`typing-${logId}`);if(e)e.remove();}
 
-// ── History ────────────────────────────────────────────────────────────
+// ── History ──
 async function refreshHistory() {
-  const tab = S.tab;
-  const histList = $('hist-list');
-  const histCount = $('hist-count');
-  if (tab === 'hubspot') { histList.innerHTML = ''; histCount.textContent = '0'; return; }
-
-  const prefix = tab === 'proposal' ? '/api/proposal' : '/api/websearch';
+  const tab=S.tab; if(tab==='hubspot') return;
+  const prefix=tab==='proposal'?'/api/proposal':'/api/websearch';
+  const list=$('hist-list'), cntEl=$('hist-count'), emptyEl=$('hist-empty');
   try {
-    const r = await fetch(`${prefix}/chats`);
-    const d = await r.json();
-    const chats = d.chats || [];
-    histCount.textContent = chats.length;
-    histList.innerHTML = '';
-    if (!chats.length) {
-      histList.innerHTML = '<p class="text-xs text-slate-400 text-center py-6">No chats yet</p>';
-      return;
-    }
-    chats.forEach(chat => {
-      const btn = document.createElement('button');
-      const active = chat.id === S[tab].chatId;
-      btn.className = `hist-item w-full flex items-start gap-2 px-3 py-2 rounded-xl text-left ${active ? 'active' : ''}`;
-      btn.innerHTML = `
-        <div class="w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0 ${active ? 'bg-blue-500' : 'bg-slate-300'}"></div>
-        <div class="min-w-0 flex-1">
-          <div class="hist-title text-xs truncate ${active ? 'text-blue-700 font-semibold' : 'text-slate-600 font-medium'}">${esc(chat.title || 'New Chat')}</div>
-          <div class="text-xs text-slate-400" style="font-size:10px;">${new Date(chat.created_at).toLocaleDateString()}</div>
-        </div>`;
-      btn.onclick = () => loadChat(tab, chat.id);
-      histList.appendChild(btn);
+    const r=await fetch(`${prefix}/chats`), d=await r.json();
+    const chats=(d.chats||[]).slice().reverse();
+    cntEl.textContent=chats.length;
+    list.querySelectorAll('.hist-item').forEach(el=>el.remove());
+    if(!chats.length){emptyEl.style.display='flex';return;}
+    emptyEl.style.display='none';
+    chats.forEach(chat=>{
+      const item=document.createElement('div');
+      const active=chat.id===S[tab].chatId;
+      item.className=`hist-item${active?' active':''}`;
+      const iconColor=tab==='proposal'?(active?'#4f6ef7':'var(--t3)'):(active?'#8b5cf6':'var(--t3)');
+      const iconSvg=tab==='proposal'
+        ?`<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="${iconColor}" stroke-width="2"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>`
+        :`<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="${iconColor}" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>`;
+      item.innerHTML=`<div class="hist-item-icon">${iconSvg}</div><div style="min-width:0;flex:1;"><div class="hist-item-title">${esc(chat.title||'New Chat')}</div><div class="hist-item-time">${timeAgo(chat.created_at)}</div></div>`;
+      item.onclick=()=>loadChat(tab,chat.id);
+      list.appendChild(item);
     });
-  } catch { histList.innerHTML = '<p class="text-xs text-red-400 text-center py-4">Failed to load</p>'; }
+  } catch { emptyEl.style.display='flex'; }
 }
 
 async function loadChat(tab, chatId) {
-  const prefix = tab === 'proposal' ? '/api/proposal' : '/api/websearch';
-  const logId = tab === 'proposal' ? 'proposal-log' : 'websearch-log';
+  const prefix=tab==='proposal'?'/api/proposal':'/api/websearch';
+  const logId=tab==='proposal'?'proposal-log':'websearch-log';
   try {
-    const r = await fetch(`${prefix}/chats/${chatId}`);
-    const d = await r.json();
-    S[tab].chatId = chatId;
-    if (tab === 'proposal') {
-      $('proposal-title').textContent = d.chat.title || 'Proposal Evaluator';
-      if (d.chat.last_upload_name) {
-        $('proposal-badge').classList.remove('hidden');
-        $('proposal-badge').classList.add('flex');
-        $('proposal-badge-name').textContent = d.chat.last_upload_name;
-      }
+    const r=await fetch(`${prefix}/chats/${chatId}`), d=await r.json();
+    S[tab].chatId=chatId;
+    $(logId).querySelectorAll('.msg-row').forEach(el=>el.remove());
+    if(tab==='proposal'){
+      $('proposal-chat-title').textContent=d.chat?.title||'Proposal Evaluator';
+      if(d.chat?.last_upload_name){$('prop-file-badge').style.display='inline-flex';$('prop-file-badge-name').textContent=d.chat.last_upload_name;}
     }
-    $(logId).innerHTML = '';
-    (d.messages || []).forEach(m =>
-      appendBubble(logId, m.role, m.role === 'assistant' ? renderMd(m.content) : m.content, m.role === 'assistant')
-    );
+    const msgs=d.messages||[];
+    if(msgs.length) hideWelcome(tab);
+    msgs.forEach(m=>{const isAi=m.role==='assistant';appendBubble(logId,isAi?'ai':'user',isAi?renderMd(m.content):m.content,null,isAi);});
     refreshHistory();
-  } catch(e) { console.error(e); }
+  } catch(e){console.error(e);}
 }
 
 async function createChat(tab) {
-  const prefix = tab === 'proposal' ? '/api/proposal' : '/api/websearch';
-  const r = await fetch(`${prefix}/chats`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({title:'New Chat'}) });
-  const d = await r.json();
-  S[tab].chatId = d.id;
-  await refreshHistory();
-  return d.id;
+  const prefix=tab==='proposal'?'/api/proposal':'/api/websearch';
+  try {
+    const r=await fetch(`${prefix}/chats`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title:'New Chat'})});
+    const d=await r.json(); S[tab].chatId=d.id; await refreshHistory(); return d.id;
+  } catch{return null;}
 }
 
-// ── New chat / Clear ───────────────────────────────────────────────────
-$('btn-new-chat').onclick = async () => {
-  const tab = S.tab;
-  if (tab === 'hubspot') return;
-  S[tab].chatId = null;
-  const logId = tab === 'proposal' ? 'proposal-log' : 'websearch-log';
-  $(logId).innerHTML = '';
-  if (tab === 'proposal') {
-    $('proposal-title').textContent = 'Proposal Evaluator';
-    $('proposal-badge').classList.add('hidden');
-    $('proposal-file-label').textContent = 'Click or drag to upload PDF / PPTX / DOCX';
-    $('proposal-file').value = '';
+// ── New chat ──
+$('btn-new-chat').onclick = async()=>{
+  const tab=S.tab; if(tab==='hubspot') return;
+  S[tab].chatId=null;
+  if(tab==='proposal'){
+    $('proposal-log').querySelectorAll('.msg-row').forEach(el=>el.remove());
+    $('proposal-welcome').style.display='flex';
+    $('proposal-chat-title').textContent='Proposal Evaluator';
+    $('prop-file-badge').style.display='none';
+    clearAttach();
+  } else {
+    $('websearch-log').querySelectorAll('.msg-row').forEach(el=>el.remove());
+    $('websearch-welcome').style.display='flex';
   }
   await createChat(tab);
 };
 
-$('btn-clear').onclick = async () => {
-  const tab = S.tab;
-  if (tab === 'hubspot') return;
-  if (!confirm('Delete all chats in this tab?')) return;
-  const prefix = tab === 'proposal' ? '/api/proposal' : '/api/websearch';
-  const r = await fetch(`${prefix}/chats`);
-  const d = await r.json();
-  await Promise.all((d.chats || []).map(c => fetch(`${prefix}/chats/${c.id}`, { method:'DELETE' })));
-  S[tab].chatId = null;
-  const logId = tab === 'proposal' ? 'proposal-log' : 'websearch-log';
-  $(logId).innerHTML = '';
+// ── Reset files ──
+$('btn-reset-files').onclick = async()=>{
+  const tab=S.tab; if(tab==='hubspot') return;
+  if(!confirm('Reset all uploaded files?')) return;
+  try{
+    const r=await fetch('/api/proposal/reset-files',{method:'POST'}), d=await r.json();
+    appendBubble('proposal-log','ai',renderMd(d.message||'Files reset.'),null,true);
+    $('prop-file-badge').style.display='none'; clearAttach();
+  }catch(e){console.error(e);}
+};
+
+// ── Clear all ──
+$('btn-clear-all').onclick = async()=>{
+  const tab=S.tab; if(tab==='hubspot') return;
+  if(!confirm('Delete all chats?')) return;
+  const prefix=tab==='proposal'?'/api/proposal':'/api/websearch';
+  try{const r=await fetch(`${prefix}/chats`),d=await r.json();await Promise.all((d.chats||[]).map(c=>fetch(`${prefix}/chats/${c.id}`,{method:'DELETE'})));}catch{}
+  S[tab].chatId=null;
+  const logId=tab==='proposal'?'proposal-log':'websearch-log';
+  $(logId).querySelectorAll('.msg-row').forEach(el=>el.remove());
+  $(`${tab}-welcome`).style.display='flex';
   refreshHistory();
 };
 
-// ── Reset files (proposal) ────────────────────────────────────────────
-$('btn-reset-files').onclick = async () => {
-  try {
-    $('proposal-status').textContent = 'Resetting files…';
-    const r = await fetch('/api/proposal/reset-files', { method: 'POST' });
-    const d = await r.json();
-    const msg = d.message || 'Files reset complete.';
-    appendBubble('proposal-log', 'assistant', renderMd(msg), true);
+// ── File attachment ──
+const fileInputHidden = $('file-input-hidden');
+const propPill=$('prop-pill'), propPillName=$('prop-pill-name'), propRm=$('prop-rm-file'), propAttachBtn=$('prop-attach-btn');
+const propFileBadge=$('prop-file-badge'), propFileBadgeName=$('prop-file-badge-name');
 
-    $('proposal-badge').classList.add('hidden');
-    $('proposal-file').value = '';
-    $('proposal-file-label').textContent = 'Click or drag to upload PDF / PPTX / DOCX';
-    $('proposal-status').textContent = 'Ready';
-  } catch (e) {
-    appendBubble('proposal-log', 'assistant', 'Error: ' + e.message);
-    $('proposal-status').textContent = 'Error';
-  }
-};
-
-// ── File input ─────────────────────────────────────────────────────────
-$('proposal-file').onchange = e => {
-  const f = e.target.files[0];
-  $('proposal-file-label').textContent = f ? `📎 ${f.name}` : 'Click or drag to upload PDF / PPTX / DOCX';
-};
-
-const uploadZone = $('proposal-upload-zone');
-uploadZone.addEventListener('dragover', e => { e.preventDefault(); uploadZone.classList.add('drag'); });
-uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('drag'));
-uploadZone.addEventListener('drop', e => {
-  e.preventDefault(); uploadZone.classList.remove('drag');
-  const f = e.dataTransfer.files[0];
-  if (f) { const dt = new DataTransfer(); dt.items.add(f); $('proposal-file').files = dt.files;
-           $('proposal-file-label').textContent = `📎 ${f.name}`; }
+propAttachBtn.addEventListener('click', ()=>fileInputHidden.click());
+fileInputHidden.addEventListener('change', e=>{
+  const f=e.target.files[0]; if(!f) return;
+  S.proposalFile=f;
+  propPillName.textContent=f.name;
+  propPill.classList.add('show');
+  propAttachBtn.classList.add('has-file');
 });
+propRm.addEventListener('click', clearAttach);
+function clearAttach(){
+  S.proposalFile=null; fileInputHidden.value='';
+  propPill.classList.remove('show'); propAttachBtn.classList.remove('has-file');
+}
 
-// ── Auto-resize ────────────────────────────────────────────────────────
-['proposal-input','websearch-input'].forEach(id => {
-  const el = $(id);
-  el.addEventListener('input', () => autoResize(el));
-  el.addEventListener('keydown', e => {
-    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); id === 'proposal-input' ? sendProposal() : sendWebSearch(); }
+// ── Auto-resize ──
+['proposal-input','websearch-input'].forEach(id=>{
+  const el=$(id); if(!el) return;
+  el.addEventListener('input',()=>autoResize(el));
+  el.addEventListener('keydown',e=>{
+    if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();id==='proposal-input'?sendProposal():sendWebSearch();}
   });
 });
 
-// ── Send: Proposal ─────────────────────────────────────────────────────
-async function sendProposal() {
-  const inp = $('proposal-input');
-  const txt = inp.value.trim();
-  const file = $('proposal-file').files[0];
-  if (!txt && !file) return;
-  if (!S.proposal.chatId) await createChat('proposal');
+function fillInput(tab, text){ const el=$(`${tab}-input`); if(!el) return; el.value=text; autoResize(el); el.focus(); }
 
-  const display = txt || 'evaluate';
-  appendBubble('proposal-log', 'user', display);
+// ── Send Proposal ──
+async function sendProposal(){
+  const inp=$('proposal-input'), txt=inp.value.trim(), file=S.proposalFile;
+  if(!txt&&!file) return;
+  if(!S.proposal.chatId) await createChat('proposal');
+  const display=txt||'evaluate';
+  hideWelcome('proposal');
+  appendBubble('proposal-log','user',display,file?file.name:null);
   appendTyping('proposal-log');
-  inp.value = ''; autoResize(inp);
-  $('proposal-status').textContent = 'Processing…';
-
-  const fd = new FormData();
-  fd.append('input_text', display);
-  if (file) fd.append('file', file);
-
-  try {
-    const r = await fetch(`/api/proposal/chats/${S.proposal.chatId}/messages`, { method:'POST', body:fd });
-    const d = await r.json();
+  inp.value=''; autoResize(inp);
+  $('proposal-status').textContent='Processing…';
+  const attachedFileName = file ? file.name : null;
+  clearAttach();
+  const fd=new FormData(); fd.append('input_text',display); if(file) fd.append('file',file);
+  try{
+    const r=await fetch(`/api/proposal/chats/${S.proposal.chatId}/messages`,{method:'POST',body:fd}), d=await r.json();
     removeTyping('proposal-log');
-    if (d.output_text) appendBubble('proposal-log', 'assistant', renderMd(d.output_text), true);
-    if (d.upload_status?.filename) {
-      $('proposal-badge').classList.remove('hidden'); $('proposal-badge').classList.add('flex');
-      $('proposal-badge-name').textContent = d.upload_status.filename;
-      $('proposal-file').value = ''; $('proposal-file-label').textContent = 'Click or drag to upload PDF / PPTX / DOCX';
-    }
-    if (d.chat?.title) $('proposal-title').textContent = d.chat.title;
-    $('proposal-status').textContent = 'Ready';
+    if(d.output_text) appendBubble('proposal-log','ai',renderMd(d.output_text),null,true);
+    if(d.upload_status?.filename){propFileBadge.style.display='inline-flex';propFileBadgeName.textContent=d.upload_status.filename;}
+    if(d.chat?.title) $('proposal-chat-title').textContent=d.chat.title;
+    $('proposal-status').textContent='Ready · Enter to send';
     refreshHistory();
-  } catch(e) { removeTyping('proposal-log'); appendBubble('proposal-log','assistant','Error: '+e.message); $('proposal-status').textContent='Error'; }
+  }catch(e){removeTyping('proposal-log');appendBubble('proposal-log','ai','Error: '+e.message);$('proposal-status').textContent='Error';}
 }
-$('proposal-send').onclick = sendProposal;
+$('proposal-send').onclick=sendProposal;
 
-// ── Send: Web Search ───────────────────────────────────────────────────
-async function sendWebSearch() {
-  const inp = $('websearch-input');
-  const txt = inp.value.trim();
-  if (!txt) return;
-  if (!S.websearch.chatId) await createChat('websearch');
-
-  appendBubble('websearch-log', 'user', txt);
+// ── Send Web Search ──
+async function sendWebSearch(){
+  const inp=$('websearch-input'), txt=inp.value.trim();
+  if(!txt) return;
+  if(!S.websearch.chatId) await createChat('websearch');
+  hideWelcome('websearch');
+  appendBubble('websearch-log','user',txt);
   appendTyping('websearch-log');
-  inp.value = ''; autoResize(inp);
-  $('websearch-status').textContent = 'Searching…';
-
-  try {
-    const r = await fetch(`/api/websearch/chats/${S.websearch.chatId}/messages`, {
-      method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({input_text:txt})
-    });
-    const d = await r.json();
+  inp.value=''; autoResize(inp);
+  $('websearch-status').textContent='Searching the web…';
+  try{
+    const r=await fetch(`/api/websearch/chats/${S.websearch.chatId}/messages`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({input_text:txt})}), d=await r.json();
     removeTyping('websearch-log');
-    if (d.output_text) appendBubble('websearch-log','assistant',renderMd(d.output_text),true);
-    $('websearch-status').textContent = 'Ready';
+    if(d.output_text) appendBubble('websearch-log','ai',renderMd(d.output_text),null,true);
+    $('websearch-status').textContent='Ready · Enter to send';
     refreshHistory();
-  } catch(e) { removeTyping('websearch-log'); appendBubble('websearch-log','assistant','Error: '+e.message); $('websearch-status').textContent='Error'; }
+  }catch(e){removeTyping('websearch-log');appendBubble('websearch-log','ai','Error: '+e.message);$('websearch-status').textContent='Error';}
 }
-$('websearch-send').onclick = sendWebSearch;
+$('websearch-send').onclick=sendWebSearch;
 
-// ── Init ───────────────────────────────────────────────────────────────
+// ── History search ──
+$('hist-search-inp').addEventListener('input',function(){
+  const q=this.value.toLowerCase();
+  $('hist-list').querySelectorAll('.hist-item').forEach(item=>{
+    const t=item.querySelector('.hist-item-title')?.textContent.toLowerCase()||'';
+    item.style.display=t.includes(q)?'':'none';
+  });
+});
+
+// ── Init ──
 refreshHistory();
 </script>
 </body>
