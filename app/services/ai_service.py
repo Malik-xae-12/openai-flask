@@ -1,7 +1,13 @@
 import asyncio
+import os
 import re
 
 from app.extensions import client
+
+# ---------------------------------------------------------------------------
+# Global vector store – set once in .env, reused everywhere
+# ---------------------------------------------------------------------------
+GLOBAL_VECTOR_STORE_ID = os.getenv("VECTOR_STORE_ID", "")
 
 # ---------------------------------------------------------------------------
 # Guardrails
@@ -18,9 +24,9 @@ BLOCKED_MODERATION_CATEGORIES = [
 
 PII_PATTERNS = {
     "CREDIT_CARD": re.compile(r"\b(?:\d[ -]?){13,16}\b"),
-    "US_SSN": re.compile(r"\b\d{3}-\d{2}-\d{4}\b"),
-    "US_PASSPORT": re.compile(r"\b[A-Z]{1,2}\d{6,9}\b"),
-    "US_BANK_NUMBER": re.compile(r"\b\d{8,17}\b"),
+    "US_SSN":        re.compile(r"\b\d{3}-\d{2}-\d{4}\b"),
+    "US_PASSPORT":   re.compile(r"\b[A-Z]{1,2}\d{6,9}\b"),
+    "US_BANK_NUMBER":re.compile(r"\b\d{8,17}\b"),
 }
 
 
@@ -49,12 +55,6 @@ async def run_moderation(text: str) -> list[str]:
 
 
 async def apply_guardrails(text: str) -> dict:
-    """
-    Returns:
-        blocked  – True when request must be rejected
-        safe_text – PII-scrubbed version of the input
-        reason   – human-readable failure reason (only when blocked)
-    """
     safe_text, _ = scrub_pii(text)
     flagged_cats = await run_moderation(safe_text)
     if flagged_cats:
@@ -67,26 +67,33 @@ async def apply_guardrails(text: str) -> dict:
 
 
 # ---------------------------------------------------------------------------
-# Vector store helpers  (fix: reuse per-chat store, no new store per upload)
+# Vector store helpers – global store, no per-chat creation
 # ---------------------------------------------------------------------------
 
-async def get_or_create_vector_store(chat_id: int, existing_vs_id: str | None) -> str:
-    if existing_vs_id:
-        return existing_vs_id
-    vs = await client.vector_stores.create(name=f"ubti_chat_{chat_id}")
-    return vs.id
+def get_vector_store_id() -> str:
+    """Always returns the single global vector store ID."""
+    if not GLOBAL_VECTOR_STORE_ID:
+        raise ValueError("VECTOR_STORE_ID is not set in environment variables.")
+    return GLOBAL_VECTOR_STORE_ID
 
 
-async def upload_file_to_vector_store(uploaded_file, vector_store_id: str) -> dict:
+async def upload_file_to_vector_store(uploaded_file) -> dict:
+    """
+    Upload a file to the GLOBAL vector store.
+    Returns file metadata including file_id so callers can track the latest file.
+    """
+    vector_store_id = get_vector_store_id()
     filename = uploaded_file.filename or "upload"
     content_type = uploaded_file.mimetype or "application/octet-stream"
 
+    # Upload file to OpenAI
     created = await client.files.create(
         file=(filename, uploaded_file.stream, content_type),
         purpose="assistants",
     )
 
-    vector_file = await client.vector_stores.files.create(
+    # Attach to global vector store
+    await client.vector_stores.files.create(
         vector_store_id=vector_store_id,
         file_id=created.id,
     )
@@ -99,13 +106,46 @@ async def upload_file_to_vector_store(uploaded_file, vector_store_id: str) -> di
         )
         if status.status == "completed":
             break
+        if status.status == "failed":
+            break
         await asyncio.sleep(1)
 
     return {
         "filename": filename,
         "file_id": created.id,
         "vector_store_id": vector_store_id,
-        "vector_store_file_id": getattr(vector_file, "id", None),
+    }
+
+
+async def delete_all_files_in_vector_store() -> dict:
+    """
+    Delete ALL files from the global vector store and from OpenAI storage.
+    Used by the 'Reset Files' button.
+    """
+    vector_store_id = get_vector_store_id()
+
+    # List all files in the vector store
+    vs_files = await client.vector_stores.files.list(vector_store_id=vector_store_id)
+    deleted_count = 0
+    failed_count = 0
+
+    for vs_file in vs_files.data:
+        try:
+            # Remove from vector store
+            await client.vector_stores.files.delete(
+                vector_store_id=vector_store_id,
+                file_id=vs_file.id,
+            )
+            # Delete the actual file from OpenAI storage
+            await client.files.delete(vs_file.id)
+            deleted_count += 1
+        except Exception:
+            failed_count += 1
+
+    return {
+        "deleted": deleted_count,
+        "failed": failed_count,
+        "vector_store_id": vector_store_id,
     }
 
 
@@ -149,9 +189,9 @@ Slide Template Evaluation:
 Region: US → "UB Technology Innovations"; India → "Unlimited Innovations"; UAE → "UB Infinite Solutions".
 Template guidelines: Font ≥17pt, Open Sans family, Blue #0059B8 titles, Ink #1F2020 body copy."""
 
-DOC_QA_SYSTEM = """You answer questions about the uploaded document using file search.
-Only answer from document content. Cite slide/page numbers where possible.
-If the answer is not in the document, say so clearly."""
+DOC_QA_SYSTEM = """You are a document assistant. The user has uploaded one or more files in this chat.
+Answer ONLY from the content of those files.
+If the answer is not in the documents, say so clearly."""
 
 WEB_SEARCH_SYSTEM = """You are a research assistant. Provide helpful, accurate, up-to-date information.
 For company queries, return a clean markdown table including:
@@ -177,7 +217,7 @@ CAPABILITY_PROMPTS = {
 
 
 # ---------------------------------------------------------------------------
-# Direct OpenAI API helpers (no SDK Runner — faster 5-10 s responses)
+# API call helpers
 # ---------------------------------------------------------------------------
 
 def _flatten_history(history: list) -> list:
@@ -198,8 +238,21 @@ def _flatten_history(history: list) -> list:
     return messages
 
 
-async def _call_with_file_search(system_prompt: str, history: list, vector_store_id: str) -> str:
+async def _call_evaluate(system_prompt: str, history: list, file_id: str) -> str:
+    """
+    EVALUATE path: uses Responses API with file_search scoped to ONE specific file.
+    This is accurate but slightly slower — acceptable for evaluation.
+    """
+    vector_store_id = get_vector_store_id()
     tools = [{"type": "file_search", "vector_store_ids": [vector_store_id]}]
+
+    # Inject file scoping into the prompt so the model focuses on the latest file
+    scoped_system = (
+        f"{system_prompt}\n\n"
+        f"IMPORTANT: Evaluate ONLY the file with file_id={file_id}. "
+        f"Ignore all other files in the vector store."
+    )
+
     input_messages = []
     for msg in history:
         role = msg.get("role", "user")
@@ -211,7 +264,40 @@ async def _call_with_file_search(system_prompt: str, history: list, vector_store
 
     response = await client.responses.create(
         model="gpt-4.1",
-        instructions=system_prompt,
+        instructions=scoped_system,
+        tools=tools,
+        input=input_messages,
+        store=False,
+    )
+    return response.output_text
+
+
+async def _call_doc_qa(system_prompt: str, history: list, file_ids: list[str]) -> str:
+    """
+    Q&A path: uses Responses API with file_search so the model can read files.
+    We scope the prompt to the file_ids belonging to this chat.
+    """
+    vector_store_id = get_vector_store_id()
+    tools = [{"type": "file_search", "vector_store_ids": [vector_store_id]}]
+
+    scoped_system = (
+        f"{system_prompt}\n\n"
+        f"IMPORTANT: Answer only using these file_ids from this chat: {', '.join(file_ids)}. "
+        f"Ignore any other files in the vector store."
+    )
+
+    input_messages = []
+    for msg in history:
+        role = msg.get("role", "user")
+        content = msg.get("content", "")
+        if isinstance(content, list):
+            input_messages.append({"role": role, "content": content})
+        else:
+            input_messages.append({"role": role, "content": str(content)})
+
+    response = await client.responses.create(
+        model="gpt-4.1",
+        instructions=scoped_system,
         tools=tools,
         input=input_messages,
         store=False,
@@ -220,6 +306,7 @@ async def _call_with_file_search(system_prompt: str, history: list, vector_store
 
 
 async def _call_chat(system_prompt: str, history: list) -> str:
+    """Standard chat completions for web search."""
     messages = [{"role": "system", "content": system_prompt}]
     messages.extend(_flatten_history(history))
     response = await client.chat.completions.create(
@@ -236,7 +323,8 @@ async def _call_chat(system_prompt: str, history: list) -> str:
 async def run_proposal_workflow(
     user_text: str,
     history: list,
-    vector_store_id: str | None,
+    file_ids: list[str],               # all file IDs for this chat, oldest -> newest
+    latest_file_name: str | None = None,
 ) -> str:
     lower = user_text.strip().lower()
 
@@ -255,15 +343,18 @@ async def run_proposal_workflow(
     safe_text = guardrail["safe_text"]
     history.append({"role": "user", "content": [{"type": "input_text", "text": safe_text}]})
 
-    if lower in EVALUATE_KEYWORDS:
-        if not vector_store_id:
-            return "No document available to evaluate. Please upload a file first."
-        return await _call_with_file_search(EVALUATOR_SYSTEM, history, vector_store_id)
+    latest_file_id = file_ids[-1] if file_ids else None
 
-    if vector_store_id:
-        return await _call_with_file_search(DOC_QA_SYSTEM, history, vector_store_id)
+    # No file uploaded yet
+    if not latest_file_id:
+        return "Please upload a document first, then ask questions or type 'evaluate'."
 
-    return "Please upload a document first, then ask questions or type 'evaluate'."
+    # EVALUATE — use file_search via Responses API (accurate, slightly slower)
+    if any(kw in lower for kw in EVALUATE_KEYWORDS):
+        return await _call_evaluate(EVALUATOR_SYSTEM, history, latest_file_id)
+
+    # Q&A — use Responses API with file_search across all chat files
+    return await _call_doc_qa(DOC_QA_SYSTEM, history, file_ids)
 
 
 async def run_websearch_workflow(user_text: str, history: list) -> str:
@@ -288,8 +379,9 @@ async def run_websearch_workflow(user_text: str, history: list) -> str:
 
 __all__ = [
     "apply_guardrails",
-    "get_or_create_vector_store",
+    "get_vector_store_id",
     "upload_file_to_vector_store",
+    "delete_all_files_in_vector_store",
     "run_proposal_workflow",
     "run_websearch_workflow",
 ]
