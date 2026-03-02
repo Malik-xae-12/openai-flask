@@ -25,7 +25,7 @@ proposal_bp = Blueprint("proposal", __name__, url_prefix="/api/proposal")
 
 def _get_file_ids(chat: Chat) -> list[str]:
     """
-    Returns all file IDs uploaded in this chat, ordered oldest → newest.
+    Returns all file IDs uploaded in this chat, ordered oldest -> newest.
     Stored as JSON in context_text e.g. '["file-abc", "file-xyz"]'
     """
     try:
@@ -57,14 +57,14 @@ def _build_history(messages):
     return history
 
 
-# ── GET /api/proposal/chats ───────────────────────────────────────────────────
+# -- GET /api/proposal/chats -----------------------------------------------
 @proposal_bp.get("/chats")
 def list_chats():
     chats = Chat.query.filter_by(mode="proposal").order_by(Chat.created_at.desc()).all()
     return jsonify({"chats": [c.to_dict() for c in chats]})
 
 
-# ── POST /api/proposal/chats ──────────────────────────────────────────────────
+# -- POST /api/proposal/chats ----------------------------------------------
 @proposal_bp.post("/chats")
 def create_chat():
     data = request.get_json(silent=True) or {}
@@ -74,7 +74,7 @@ def create_chat():
     return jsonify(chat.to_dict()), 201
 
 
-# ── GET /api/proposal/chats/<id> ──────────────────────────────────────────────
+# -- GET /api/proposal/chats/<id> ------------------------------------------
 @proposal_bp.get("/chats/<int:chat_id>")
 def get_chat(chat_id):
     chat = Chat.query.get_or_404(chat_id)
@@ -85,7 +85,7 @@ def get_chat(chat_id):
     })
 
 
-# ── DELETE /api/proposal/chats/<id> ──────────────────────────────────────────
+# -- DELETE /api/proposal/chats/<id> ---------------------------------------
 @proposal_bp.delete("/chats/<int:chat_id>")
 def delete_chat(chat_id):
     chat = Chat.query.get_or_404(chat_id)
@@ -95,7 +95,7 @@ def delete_chat(chat_id):
     return jsonify({"deleted": chat_id})
 
 
-# ── POST /api/proposal/chats/<id>/messages ───────────────────────────────────
+# -- POST /api/proposal/chats/<id>/messages --------------------------------
 @proposal_bp.post("/chats/<int:chat_id>/messages")
 async def send_message(chat_id):
     chat = Chat.query.get_or_404(chat_id)
@@ -104,7 +104,7 @@ async def send_message(chat_id):
     uploaded_file = request.files.get("file")
     upload_status = None
 
-    # ── Handle file upload ────────────────────────────────────────────────────
+    # -- Handle file upload --------------------------------------------------
     if uploaded_file and uploaded_file.filename:
         meta = await upload_file_to_vector_store(uploaded_file)
 
@@ -125,14 +125,14 @@ async def send_message(chat_id):
             "total_files": len(file_ids),
         }
 
-    # ── Get all file IDs for this chat ────────────────────────────────────────
+    # -- Get all file IDs for this chat -------------------------------------
     file_ids = _get_file_ids(chat)
 
-    # ── Build history ─────────────────────────────────────────────────────────
+    # -- Build history -------------------------------------------------------
     past_messages = Message.query.filter_by(chat_id=chat_id).order_by(Message.created_at).all()
     history = _build_history(past_messages)
 
-    # ── Run workflow ──────────────────────────────────────────────────────────
+    # -- Run workflow --------------------------------------------------------
     file_ids_for_qa = [chat.openai_file_id] if chat.openai_file_id else file_ids
     output = await run_proposal_workflow(
         user_text=input_text or "evaluate",
@@ -141,7 +141,7 @@ async def send_message(chat_id):
         latest_file_name=chat.last_upload_name, # most recent filename
     )
 
-    # ── Persist messages ──────────────────────────────────────────────────────
+    # -- Persist messages ----------------------------------------------------
     if input_text:
         db.session.add(Message(chat_id=chat_id, role="user", content=input_text))
     db.session.add(Message(chat_id=chat_id, role="assistant", content=output))
@@ -157,7 +157,7 @@ async def send_message(chat_id):
     })
 
 
-# ── POST /api/proposal/reset-files ───────────────────────────────────────────
+# -- POST /api/proposal/reset-files ----------------------------------------
 @proposal_bp.post("/reset-files")
 async def reset_files():
     """
@@ -179,5 +179,5 @@ async def reset_files():
         "deleted_files": result.get("deleted", 0),
         "failed_files": result.get("failed", 0),
         "vector_store_id": result.get("vector_store_id", ""),
-        "message": f"Deleted {result.get('deleted', 0)} file(s) from vector store."
+        "message": f"Deleted {result.get('deleted', 0)} file(s) from vector store.",
     })

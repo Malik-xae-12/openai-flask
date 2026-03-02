@@ -248,17 +248,15 @@
     .tab-panel { display: none; flex: 1; flex-direction: column; min-height: 0; }
     .tab-panel.active { display: flex; }
 
-    /* hubspot pane */
-    .hs-pane { flex: 1; display: flex; align-items: center; justify-content: center; background: var(--chat-bg); }
-    .hs-card { max-width: 350px; width: 100%; text-align: center; padding: 36px 22px; }
-    .hs-icon { width: 64px; height: 64px; border-radius: 19px; margin: 0 auto 18px; background: var(--orange-dim); border: 1px solid rgba(249,115,22,0.28); display: flex; align-items: center; justify-content: center; }
-    .hs-title { font-size: 19px; font-weight: 800; color: var(--t1); margin-bottom: 7px; }
-    .hs-sub { font-size: 12px; color: var(--t3); line-height: 1.65; margin-bottom: 24px; }
-    .hs-features { display: flex; flex-direction: column; gap: 9px; text-align: left; }
-    .hs-feat { display: flex; align-items: center; gap: 11px; background: var(--surf); border: 1px solid var(--border); border-radius: 11px; padding: 11px 13px; }
-    .hs-feat-icon { width: 30px; height: 30px; border-radius: 8px; background: var(--orange-dim); border: 1px solid rgba(249,115,22,0.22); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-    .hs-feat-name { font-size: 12px; font-weight: 700; color: var(--t2); }
-    .hs-feat-sub { font-size: 11px; color: var(--t3); margin-top: 1px; }
+    /* hubspot results */
+    .hs-results { display: flex; flex-direction: column; gap: 10px; }
+    .hs-result { background: var(--surf); border: 1px solid var(--border2); border-radius: 12px; padding: 10px 12px; }
+    .hs-result-title { font-size: 12px; font-weight: 700; color: var(--t1); }
+    .hs-result-meta { font-size: 11px; color: var(--t3); margin-top: 2px; }
+    .hs-props { margin-top: 8px; display: grid; grid-template-columns: 140px 1fr; gap: 4px 10px; font-size: 12px; }
+    .hs-prop-key { color: var(--t3); }
+    .hs-prop-val { color: var(--t1); word-break: break-word; }
+    .hs-hint { font-size: 11px; color: var(--t3); margin-top: 8px; }
 
     /* anim */
     @keyframes fadeUp { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
@@ -454,33 +452,35 @@
             <div class="ctb-sub">Connect your CRM for AI-powered contact and deal management</div>
           </div>
         </div>
-        <div class="badge badge-soon">Coming Soon</div>
+        <div class="badge badge-soon" id="hubspot-status-badge">Checking…</div>
       </div>
-      <div class="hs-pane">
-        <div class="hs-card">
-          <div class="hs-icon">
-            <svg width="29" height="29" viewBox="0 0 24 24" fill="none" stroke="#f97316" stroke-width="1.7"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
-          </div>
-          <div class="hs-title">HubSpot Integration</div>
-          <div class="hs-sub">Connect your HubSpot CRM to manage contacts, deals, and pipelines directly from this console.</div>
-          <div class="hs-features">
-            <div class="hs-feat">
-              <div class="hs-feat-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#f97316" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg></div>
-              <div><div class="hs-feat-name">Contact Management</div><div class="hs-feat-sub">Sync and query CRM contacts with AI</div></div>
-              <div class="badge badge-soon" style="margin-left:auto;flex-shrink:0;">Soon</div>
+      <div class="chat-log" id="hubspot-log">
+        <div class="welcome-screen" id="hubspot-welcome">
+          <div class="welcome-inner">
+            <div class="welcome-icon" style="background:var(--orange-dim);border:1px solid rgba(249,115,22,0.28);">
+              <svg width="25" height="25" viewBox="0 0 24 24" fill="none" stroke="#f97316" stroke-width="1.8"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
             </div>
-            <div class="hs-feat">
-              <div class="hs-feat-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#f97316" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></div>
-              <div><div class="hs-feat-name">Deal Pipeline AI</div><div class="hs-feat-sub">AI insights and forecasting on deals</div></div>
-              <div class="badge badge-soon" style="margin-left:auto;flex-shrink:0;">Soon</div>
-            </div>
-            <div class="hs-feat">
-              <div class="hs-feat-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#f97316" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg></div>
-              <div><div class="hs-feat-name">Email Automation</div><div class="hs-feat-sub">AI-drafted outreach sequences</div></div>
-              <div class="badge badge-soon" style="margin-left:auto;flex-shrink:0;">Soon</div>
+            <div class="welcome-title">HubSpot CRM</div>
+            <div class="welcome-sub">Ask about contacts, companies, or deals in plain English. Try: <strong style="color:var(--t2)">"how many leads"</strong> or <strong style="color:var(--t2)">"details about Acme Inc."</strong>.</div>
+            <div class="welcome-chips">
+              <div class="welcome-chip" onclick="fillInput('hubspot','how many leads?')">How many leads?</div>
+              <div class="welcome-chip" onclick="fillInput('hubspot','show recent deals')">Recent deals</div>
+              <div class="welcome-chip" onclick="fillInput('hubspot','details about Acme Inc.')">Details about a company</div>
             </div>
           </div>
         </div>
+      </div>
+
+      <div class="composer-wrap">
+        <div class="composer">
+          <div class="composer-inner" style="border-color:rgba(249,115,22,0.25);">
+            <textarea class="composer-ta" id="hubspot-input" placeholder="Ask HubSpot…" rows="1"></textarea>
+          </div>
+          <button class="send-btn" id="hubspot-send" style="background:var(--orange);box-shadow:0 3px 12px rgba(249,115,22,0.35);">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22,2 15,22 11,13 2,9"/></svg>
+          </button>
+        </div>
+        <div class="composer-hint" id="hubspot-status">Ready · Enter to send</div>
       </div>
     </div>
 
@@ -523,7 +523,7 @@ function timeAgo(iso) {
   return d.toLocaleDateString();
 }
 
-const S = { tab:'proposal', proposal:{chatId:null}, websearch:{chatId:null}, proposalFile:null };
+const S = { tab:'proposal', proposal:{chatId:null}, websearch:{chatId:null}, hubspot:{chatId:null}, proposalFile:null };
 const MODULE_LABELS = {proposal:'Proposal', websearch:'Web Search', hubspot:'HubSpot'};
 
 // ── Tab switch ──
@@ -534,8 +534,10 @@ document.querySelectorAll('.rail-btn[data-tab]').forEach(btn => {
     document.querySelectorAll('.rail-btn[data-tab]').forEach(b => b.classList.toggle('active', b.dataset.tab===tab));
     document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.id===`panel-${tab}`));
     const hp = $('hist-panel');
-    if (tab==='hubspot') { hp.classList.add('collapsed'); }
-    else { hp.classList.remove('collapsed'); $('hist-module-label').textContent=MODULE_LABELS[tab]; refreshHistory(); }
+    hp.classList.remove('collapsed');
+    $('hist-module-label').textContent=MODULE_LABELS[tab];
+    refreshHistory();
+    if (tab==='hubspot') { loadHubspotStatus(); }
   });
 });
 
@@ -583,8 +585,8 @@ function removeTyping(logId){const e=$(`typing-${logId}`);if(e)e.remove();}
 
 // ── History ──
 async function refreshHistory() {
-  const tab=S.tab; if(tab==='hubspot') return;
-  const prefix=tab==='proposal'?'/api/proposal':'/api/websearch';
+  const tab=S.tab;
+  const prefix=tab==='proposal'?'/api/proposal':(tab==='websearch'?'/api/websearch':'/api/hubspot');
   const list=$('hist-list'), cntEl=$('hist-count'), emptyEl=$('hist-empty');
   try {
     const r=await fetch(`${prefix}/chats`), d=await r.json();
@@ -597,10 +599,17 @@ async function refreshHistory() {
       const item=document.createElement('div');
       const active=chat.id===S[tab].chatId;
       item.className=`hist-item${active?' active':''}`;
-      const iconColor=tab==='proposal'?(active?'#4f6ef7':'var(--t3)'):(active?'#8b5cf6':'var(--t3)');
-      const iconSvg=tab==='proposal'
-        ?`<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="${iconColor}" stroke-width="2"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>`
-        :`<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="${iconColor}" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>`;
+      const iconColor=tab==='proposal'
+        ?(active?'#4f6ef7':'var(--t3)')
+        :(tab==='websearch'?(active?'#8b5cf6':'var(--t3)'):(active?'#f97316':'var(--t3)'));
+      let iconSvg='';
+      if (tab==='proposal') {
+        iconSvg=`<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="${iconColor}" stroke-width="2"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>`;
+      } else if (tab==='websearch') {
+        iconSvg=`<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="${iconColor}" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>`;
+      } else {
+        iconSvg=`<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="${iconColor}" stroke-width="2"><path d="M3 7h18M5 7v10a2 2 0 002 2h10a2 2 0 002-2V7"/><path d="M7 7V5a2 2 0 012-2h6a2 2 0 012 2v2"/></svg>`;
+      }
       item.innerHTML=`<div class="hist-item-icon">${iconSvg}</div><div style="min-width:0;flex:1;"><div class="hist-item-title">${esc(chat.title||'New Chat')}</div><div class="hist-item-time">${timeAgo(chat.created_at)}</div></div>`;
       item.onclick=()=>loadChat(tab,chat.id);
       list.appendChild(item);
@@ -609,8 +618,8 @@ async function refreshHistory() {
 }
 
 async function loadChat(tab, chatId) {
-  const prefix=tab==='proposal'?'/api/proposal':'/api/websearch';
-  const logId=tab==='proposal'?'proposal-log':'websearch-log';
+  const prefix=tab==='proposal'?'/api/proposal':(tab==='websearch'?'/api/websearch':'/api/hubspot');
+  const logId=tab==='proposal'?'proposal-log':(tab==='websearch'?'websearch-log':'hubspot-log');
   try {
     const r=await fetch(`${prefix}/chats/${chatId}`), d=await r.json();
     S[tab].chatId=chatId;
@@ -621,13 +630,24 @@ async function loadChat(tab, chatId) {
     }
     const msgs=d.messages||[];
     if(msgs.length) hideWelcome(tab);
-    msgs.forEach(m=>{const isAi=m.role==='assistant';appendBubble(logId,isAi?'ai':'user',isAi?renderMd(m.content):m.content,null,isAi);});
+    msgs.forEach(m=>{
+      const isAi=m.role==='assistant';
+      if(tab==='hubspot' && isAi){
+        let parsed=null;
+        try{parsed=JSON.parse(m.content);}catch{}
+        if(parsed){
+          if(parsed.error){appendBubble(logId,'ai',`Error: ${parsed.error}`);return;}
+          appendBubble(logId,'ai',renderHubspotResponse(parsed),null,true);return;
+        }
+      }
+      appendBubble(logId,isAi?'ai':'user',isAi?renderMd(m.content):m.content,null,isAi);
+    });
     refreshHistory();
   } catch(e){console.error(e);}
 }
 
 async function createChat(tab) {
-  const prefix=tab==='proposal'?'/api/proposal':'/api/websearch';
+  const prefix=tab==='proposal'?'/api/proposal':(tab==='websearch'?'/api/websearch':'/api/hubspot');
   try {
     const r=await fetch(`${prefix}/chats`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title:'New Chat'})});
     const d=await r.json(); S[tab].chatId=d.id; await refreshHistory(); return d.id;
@@ -636,7 +656,7 @@ async function createChat(tab) {
 
 // ── New chat ──
 $('btn-new-chat').onclick = async()=>{
-  const tab=S.tab; if(tab==='hubspot') return;
+  const tab=S.tab;
   S[tab].chatId=null;
   if(tab==='proposal'){
     $('proposal-log').querySelectorAll('.msg-row').forEach(el=>el.remove());
@@ -644,9 +664,12 @@ $('btn-new-chat').onclick = async()=>{
     $('proposal-chat-title').textContent='Proposal Evaluator';
     $('prop-file-badge').style.display='none';
     clearAttach();
-  } else {
+  } else if(tab==='websearch') {
     $('websearch-log').querySelectorAll('.msg-row').forEach(el=>el.remove());
     $('websearch-welcome').style.display='flex';
+  } else {
+    $('hubspot-log').querySelectorAll('.msg-row').forEach(el=>el.remove());
+    $('hubspot-welcome').style.display='flex';
   }
   await createChat(tab);
 };
@@ -664,12 +687,12 @@ $('btn-reset-files').onclick = async()=>{
 
 // ── Clear all ──
 $('btn-clear-all').onclick = async()=>{
-  const tab=S.tab; if(tab==='hubspot') return;
+  const tab=S.tab;
   if(!confirm('Delete all chats?')) return;
-  const prefix=tab==='proposal'?'/api/proposal':'/api/websearch';
+  const prefix=tab==='proposal'?'/api/proposal':(tab==='websearch'?'/api/websearch':'/api/hubspot');
   try{const r=await fetch(`${prefix}/chats`),d=await r.json();await Promise.all((d.chats||[]).map(c=>fetch(`${prefix}/chats/${c.id}`,{method:'DELETE'})));}catch{}
   S[tab].chatId=null;
-  const logId=tab==='proposal'?'proposal-log':'websearch-log';
+  const logId=tab==='proposal'?'proposal-log':(tab==='websearch'?'websearch-log':'hubspot-log');
   $(logId).querySelectorAll('.msg-row').forEach(el=>el.remove());
   $(`${tab}-welcome`).style.display='flex';
   refreshHistory();
@@ -695,11 +718,16 @@ function clearAttach(){
 }
 
 // ── Auto-resize ──
-['proposal-input','websearch-input'].forEach(id=>{
+['proposal-input','websearch-input','hubspot-input'].forEach(id=>{
   const el=$(id); if(!el) return;
   el.addEventListener('input',()=>autoResize(el));
   el.addEventListener('keydown',e=>{
-    if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();id==='proposal-input'?sendProposal():sendWebSearch();}
+    if(e.key==='Enter'&&!e.shiftKey){
+      e.preventDefault();
+      if(id==='proposal-input') sendProposal();
+      else if(id==='websearch-input') sendWebSearch();
+      else sendHubspot();
+    }
   });
 });
 
@@ -751,6 +779,102 @@ async function sendWebSearch(){
 }
 $('websearch-send').onclick=sendWebSearch;
 
+// ── HubSpot status ──
+async function loadHubspotStatus() {
+  const badge = $('hubspot-status-badge');
+  if (!badge) return;
+  badge.textContent = 'Checking…';
+  try {
+    const r = await fetch('/api/hubspot/status');
+    const d = await r.json();
+    if (d.connected) {
+      badge.textContent = 'Connected';
+      badge.classList.remove('badge-soon');
+      badge.classList.add('badge-file');
+    } else {
+      badge.textContent = 'Not Connected';
+      badge.classList.add('badge-soon');
+      badge.classList.remove('badge-file');
+    }
+  } catch {
+    badge.textContent = 'Status Error';
+    badge.classList.add('badge-soon');
+    badge.classList.remove('badge-file');
+  }
+}
+
+function renderHubspotResponse(data) {
+  if (!data) return '';
+
+  if (typeof data.count === 'number') {
+    const criteria = Object.keys(data.search_criteria || {}).length
+      ? `Filters: ${esc(JSON.stringify(data.search_criteria))}`
+      : 'No filters applied';
+    return (
+      `<div class="hs-result">
+        <div class="hs-result-title">Count Result</div>
+        <div class="hs-result-meta">${esc(data.object_type || 'records')} · ${data.count} total</div>
+        <div class="hs-hint">${criteria}</div>
+      </div>`
+    );
+  }
+
+  const results = data.results || [];
+  if (!results.length) {
+    return `<div class="hs-result"><div class="hs-result-title">No records found.</div></div>`;
+  }
+
+  const blocks = results.map(item => {
+    const props = Object.assign({}, item.properties || {});
+    if (item.company_name) props.company_name = item.company_name;
+    const propsHtml = Object.keys(props).length
+      ? `<div class="hs-props">${Object.entries(props).map(([k,v]) => (
+          `<div class="hs-prop-key">${esc(k)}</div><div class="hs-prop-val">${esc(v)}</div>`
+        )).join('')}</div>`
+      : `<div class="hs-hint">No properties returned.</div>`;
+
+    return (
+      `<div class="hs-result">
+        <div class="hs-result-title">${esc(item.name || 'Record')}</div>
+        ${item.id ? `<div class="hs-result-meta">ID ${esc(item.id)}</div>` : ''}
+        ${propsHtml}
+      </div>`
+    );
+  }).join('');
+
+  const more = data.has_more ? `<div class="hs-hint">More results available. Type "next" to continue.</div>` : '';
+  return `<div class="hs-results">${blocks}${more}</div>`;
+}
+
+// ── Send HubSpot query ──
+async function sendHubspot(){
+  const inp=$('hubspot-input'), txt=inp.value.trim();
+  if(!txt) return;
+  if(!S.hubspot.chatId) await createChat('hubspot');
+  hideWelcome('hubspot');
+  appendBubble('hubspot-log','user',txt);
+  appendTyping('hubspot-log');
+  inp.value=''; autoResize(inp);
+  $('hubspot-status').textContent='Querying HubSpot…';
+  try{
+    const r=await fetch(`/api/hubspot/chats/${S.hubspot.chatId}/messages`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({question:txt})});
+    const d=await r.json();
+    removeTyping('hubspot-log');
+    if(d.error || d.response?.error){
+      appendBubble('hubspot-log','ai',`Error: ${d.error || d.response.error}`);
+    } else {
+      appendBubble('hubspot-log','ai',renderHubspotResponse(d.response||d),null,true);
+    }
+    $('hubspot-status').textContent='Ready · Enter to send';
+    refreshHistory();
+  }catch(e){
+    removeTyping('hubspot-log');
+    appendBubble('hubspot-log','ai','Error: '+e.message);
+    $('hubspot-status').textContent='Error';
+  }
+}
+$('hubspot-send').onclick=sendHubspot;
+
 // ── History search ──
 $('hist-search-inp').addEventListener('input',function(){
   const q=this.value.toLowerCase();
@@ -762,6 +886,7 @@ $('hist-search-inp').addEventListener('input',function(){
 
 // ── Init ──
 refreshHistory();
+loadHubspotStatus();
 </script>
 </body>
 </html>
