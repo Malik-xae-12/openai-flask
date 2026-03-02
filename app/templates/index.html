@@ -6,336 +6,66 @@
   <title>UBTI AI Powered Assistant</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
-
-  <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-    :root {
-      --bg:         #0b0d12;
-      --rail-bg:    #0f1117;
-      --panel-bg:   #13161e;
-      --chat-bg:    #181c27;
-      --surf:       #1e2233;
-      --surf2:      #252b3d;
-      --border:     rgba(255,255,255,0.07);
-      --border2:    rgba(255,255,255,0.12);
-
-      --blue:       #4f6ef7;
-      --blue-dim:   rgba(79,110,247,0.18);
-      --blue-glow:  rgba(79,110,247,0.35);
-      --violet:     #8b5cf6;
-      --orange:     #f97316;
-      --orange-dim: rgba(249,115,22,0.15);
-      --red:        #ef4444;
-      --red-dim:    rgba(239,68,68,0.13);
-
-      --t1: #eef0fb;
-      --t2: #9aa3c2;
-      --t3: #4d5475;
-
-      font-family: 'Plus Jakarta Sans', sans-serif;
-    }
-
-    html, body { height: 100%; overflow: hidden; background: var(--bg); color: var(--t1); }
-
-    ::-webkit-scrollbar { width: 3px; }
-    ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: var(--surf2); border-radius: 4px; }
-
-    /* ══ LAYOUT ══ */
-    .app { display: flex; height: 100vh; }
-
-    /* ── RAIL ── */
-    .rail {
-      width: 60px; background: var(--rail-bg);
-      border-right: 1px solid var(--border);
-      display: flex; flex-direction: column; align-items: center;
-      padding: 14px 0 18px; gap: 2px; flex-shrink: 0; z-index: 10;
-    }
-    .rail-logo {
-      width: 34px; height: 34px; border-radius: 10px;
-      background: linear-gradient(135deg, var(--blue), var(--violet));
-      display: flex; align-items: center; justify-content: center;
-      margin-bottom: 18px; box-shadow: 0 4px 16px var(--blue-glow);
-      flex-shrink: 0;
-    }
-    .rail-btn {
-      width: 40px; height: 40px; border-radius: 11px;
-      display: flex; align-items: center; justify-content: center;
-      cursor: pointer; border: 1px solid transparent; background: transparent;
-      position: relative; transition: all 0.16s ease; color: var(--t3);
-    }
-    .rail-btn:hover { background: var(--surf); color: var(--t2); }
-    .rail-btn.active { background: var(--blue-dim); border-color: rgba(79,110,247,0.3); color: var(--blue); }
-    .rail-tooltip {
-      position: absolute; left: calc(100% + 10px); top: 50%; transform: translateY(-50%) translateX(-4px);
-      background: var(--surf2); color: var(--t1);
-      font-size: 11px; font-weight: 600; white-space: nowrap;
-      padding: 5px 10px; border-radius: 7px;
-      pointer-events: none; opacity: 0; transition: all 0.15s;
-      border: 1px solid var(--border2); z-index: 100;
-    }
-    .rail-btn:hover .rail-tooltip { opacity: 1; transform: translateY(-50%) translateX(0); }
-    .rail-pip {
-      position: absolute; top: 7px; right: 7px;
-      width: 6px; height: 6px; background: var(--orange); border-radius: 50%;
-      box-shadow: 0 0 6px rgba(249,115,22,0.7);
-    }
-    .rail-divider { width: 26px; height: 1px; background: var(--border); margin: 8px 0; }
-
-    /* ── HIST PANEL ── */
-    .hist-panel {
-      width: 238px; background: var(--panel-bg);
-      border-right: 1px solid var(--border);
-      display: flex; flex-direction: column; flex-shrink: 0;
-      transition: width 0.24s cubic-bezier(.4,0,.2,1), opacity 0.2s;
-      overflow: hidden;
-    }
-    .hist-panel.collapsed { width: 0; opacity: 0; pointer-events: none; }
-
-    .hist-header { padding: 14px 12px 10px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
-    .hist-top-row {
-      display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;
-    }
-    .hist-module-label { font-size: 10px; font-weight: 700; color: var(--t3); letter-spacing: 0.08em; text-transform: uppercase; }
-    .hist-count-badge { font-size: 10px; font-weight: 700; color: var(--t3); background: var(--surf); padding: 2px 8px; border-radius: 20px; }
-
-    .hist-btn-row { display: flex; gap: 5px; margin-bottom: 10px; }
-    .hbtn {
-      flex: 1; display: flex; align-items: center; justify-content: center; gap: 4px;
-      padding: 7px 6px; border-radius: 7px; font-size: 11px; font-weight: 600;
-      cursor: pointer; border: 1px solid var(--border); background: var(--surf);
-      color: var(--t2); transition: all 0.14s; font-family: inherit; white-space: nowrap;
-    }
-    .hbtn:hover { background: var(--surf2); color: var(--t1); border-color: var(--border2); }
-    .hbtn.primary { background: var(--blue-dim); border-color: rgba(79,110,247,0.3); color: #93aaff; }
-    .hbtn.primary:hover { background: rgba(79,110,247,0.26); }
-    .hbtn.danger { background: var(--red-dim); border-color: rgba(239,68,68,0.28); color: var(--red); }
-    .hbtn.danger:hover { background: rgba(239,68,68,0.22); }
-
-    .hist-search-wrap { position: relative; }
-    .hist-search-wrap svg { position: absolute; left: 9px; top: 50%; transform: translateY(-50%); color: var(--t3); pointer-events: none; }
-    .hist-search-inp {
-      width: 100%; background: var(--surf); border: 1px solid var(--border);
-      border-radius: 7px; color: var(--t1); font-size: 12px; font-family: inherit;
-      padding: 7px 10px 7px 28px; outline: none; transition: border-color 0.14s;
-    }
-    .hist-search-inp:focus { border-color: rgba(79,110,247,0.4); }
-    .hist-search-inp::placeholder { color: var(--t3); }
-
-    .hist-list { flex: 1; overflow-y: auto; padding: 6px; }
-    .hist-item {
-      display: flex; align-items: flex-start; gap: 8px;
-      padding: 8px 9px; border-radius: 7px; cursor: pointer;
-      border: 1px solid transparent; transition: all 0.13s; margin-bottom: 2px;
-    }
-    .hist-item:hover { background: var(--surf); border-color: var(--border); }
-    .hist-item.active { background: var(--blue-dim); border-color: rgba(79,110,247,0.26); }
-    .hist-item-icon {
-      width: 26px; height: 26px; border-radius: 7px; background: var(--surf2);
-      display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px;
-    }
-    .hist-item.active .hist-item-icon { background: rgba(79,110,247,0.22); }
-    .hist-item-title { font-size: 12px; font-weight: 600; color: var(--t2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .hist-item.active .hist-item-title { color: var(--t1); }
-    .hist-item-time { font-size: 10px; color: var(--t3); margin-top: 2px; }
-
-    .hist-empty { display: flex; flex-direction: column; align-items: center; padding: 36px 20px; gap: 8px; color: var(--t3); text-align: center; }
-    .hist-empty p { font-size: 12px; line-height: 1.5; }
-
-    .hist-foot { padding: 8px; border-top: 1px solid var(--border); flex-shrink: 0; }
-
-    /* ── MAIN ── */
-    .main { flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
-
-    /* topbar */
-    .chat-topbar {
-      background: var(--panel-bg); border-bottom: 1px solid var(--border);
-      padding: 11px 18px; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0;
-    }
-    .ctb-left { display: flex; align-items: center; gap: 10px; }
-    .ctb-icon { width: 32px; height: 32px; border-radius: 9px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-    .ctb-title { font-size: 14px; font-weight: 700; color: var(--t1); }
-    .ctb-sub { font-size: 11px; color: var(--t3); margin-top: 1px; }
-    .ctb-right { display: flex; align-items: center; gap: 7px; }
-
-    .badge { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; border: 1px solid; }
-    .badge-file { background: var(--blue-dim); border-color: rgba(79,110,247,0.3); color: #93aaff; }
-    .badge-soon { background: var(--orange-dim); border-color: rgba(249,115,22,0.3); color: #fba35a; }
-
-    /* chat log */
-    .chat-log { flex: 1; overflow-y: auto; padding: 20px 22px 10px; background: var(--chat-bg); display: flex; flex-direction: column; gap: 14px; }
-
-    .welcome-screen { flex: 1; display: flex; align-items: center; justify-content: center; }
-    .welcome-inner { text-align: center; max-width: 320px; }
-    .welcome-icon { width: 58px; height: 58px; border-radius: 17px; display: flex; align-items: center; justify-content: center; margin: 0 auto 14px; }
-    .welcome-title { font-size: 17px; font-weight: 800; color: var(--t1); margin-bottom: 7px; }
-    .welcome-sub { font-size: 12px; color: var(--t3); line-height: 1.65; }
-    .welcome-chips { display: flex; flex-wrap: wrap; gap: 7px; justify-content: center; margin-top: 18px; }
-    .welcome-chip { padding: 5px 13px; border-radius: 20px; font-size: 11px; font-weight: 600; background: var(--surf); border: 1px solid var(--border2); color: var(--t2); cursor: pointer; transition: all 0.13s; }
-    .welcome-chip:hover { background: var(--surf2); color: var(--t1); }
-
-    /* messages */
-    .msg-row { display: flex; gap: 9px; animation: msgIn 0.2s ease; }
-    .msg-row.user { flex-direction: row-reverse; }
-    @keyframes msgIn { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
-
-    .msg-avatar { width: 28px; height: 28px; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; align-self: flex-end; }
-    .msg-avatar.ai { background: var(--blue-dim); border: 1px solid rgba(79,110,247,0.22); }
-    .msg-avatar.uav { background: var(--surf2); border: 1px solid var(--border2); }
-
-    .msg-bubble { max-width: 70%; padding: 10px 14px; border-radius: 15px; font-size: 13px; line-height: 1.65; }
-    .msg-bubble.ai { background: var(--surf); border: 1px solid var(--border2); color: var(--t1); border-bottom-left-radius: 4px; }
-    .msg-bubble.user { background: var(--blue); color: #fff; border-bottom-right-radius: 4px; box-shadow: 0 4px 14px var(--blue-glow); }
-
-    .file-chip-user { display: inline-flex; align-items: center; gap: 5px; padding: 5px 10px; background: rgba(255,255,255,0.15); border-radius: 7px; border: 1px solid rgba(255,255,255,0.18); font-size: 11px; font-weight: 600; margin-bottom: 5px; }
-    .file-chip-ai { display: inline-flex; align-items: center; gap: 5px; padding: 4px 9px; background: var(--blue-dim); border: 1px solid rgba(79,110,247,0.28); border-radius: 6px; font-size: 11px; font-weight: 600; color: #93aaff; margin-bottom: 7px; }
-
-    .typing-bub { display: flex; align-items: center; gap: 4px; padding: 11px 14px; background: var(--surf); border: 1px solid var(--border2); border-radius: 15px; border-bottom-left-radius: 4px; }
-    .dot { width: 5px; height: 5px; border-radius: 50%; background: var(--t3); animation: bop 1.2s ease infinite; }
-    .dot:nth-child(2){animation-delay:.15s} .dot:nth-child(3){animation-delay:.3s}
-    @keyframes bop { 0%,60%,100%{transform:translateY(0)} 30%{transform:translateY(-5px)} }
-
-    /* table */
-    .md-table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 5px; }
-    .md-table th { background: var(--surf2); padding: 7px 11px; text-align: left; font-weight: 700; color: var(--t2); border: 1px solid var(--border2); font-size: 11px; }
-    .md-table td { padding: 6px 11px; border: 1px solid var(--border); color: var(--t1); vertical-align: top; }
-    .md-table tr:hover td { background: var(--surf2); }
-
-    /* composer */
-    .composer-wrap { background: var(--panel-bg); border-top: 1px solid var(--border); padding: 10px 18px 14px; flex-shrink: 0; }
-
-    .attach-pill { display: none; align-items: center; gap: 7px; margin-bottom: 8px; padding: 5px 11px; background: var(--blue-dim); border: 1px solid rgba(79,110,247,0.28); border-radius: 7px; width: fit-content; }
-    .attach-pill.show { display: flex; }
-    .attach-pill-name { font-size: 11px; font-weight: 600; color: #93aaff; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .attach-pill-rm { width: 15px; height: 15px; border-radius: 50%; background: rgba(79,110,247,0.18); display: flex; align-items: center; justify-content: center; cursor: pointer; color: #93aaff; font-size: 9px; border: none; flex-shrink: 0; transition: background 0.12s; }
-    .attach-pill-rm:hover { background: rgba(239,68,68,0.2); color: var(--red); }
-
-    .composer { display: flex; align-items: flex-end; gap: 7px; }
-    .composer-inner {
-      flex: 1; display: flex; align-items: flex-end; gap: 7px;
-      background: var(--surf); border: 1px solid var(--border2); border-radius: 13px;
-      padding: 7px 7px 7px 12px; transition: border-color 0.14s, box-shadow 0.14s;
-    }
-    .composer-inner:focus-within { border-color: rgba(79,110,247,0.5); box-shadow: 0 0 0 3px rgba(79,110,247,0.1); }
-
-    .attach-btn {
-      width: 30px; height: 30px; border-radius: 7px; background: var(--surf2); border: 1px solid var(--border);
-      color: var(--t3); display: flex; align-items: center; justify-content: center;
-      cursor: pointer; flex-shrink: 0; transition: all 0.13s;
-    }
-    .attach-btn:hover { color: var(--t2); border-color: var(--border2); }
-    .attach-btn.has-file { background: var(--blue-dim); border-color: rgba(79,110,247,0.38); color: var(--blue); }
-
-    .composer-ta {
-      flex: 1; background: transparent; border: none; outline: none;
-      color: var(--t1); font-family: inherit; font-size: 13px; line-height: 1.5;
-      resize: none; min-height: 30px; max-height: 120px; overflow-y: auto; padding: 4px 0;
-    }
-    .composer-ta::placeholder { color: var(--t3); }
-
-    .send-btn {
-      width: 34px; height: 34px; border-radius: 9px; background: var(--blue); border: none;
-      color: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center;
-      flex-shrink: 0; box-shadow: 0 3px 12px var(--blue-glow); transition: all 0.13s;
-    }
-    .send-btn:hover { transform: translateY(-1px); box-shadow: 0 5px 18px var(--blue-glow); }
-
-    .composer-hint { font-size: 10px; color: var(--t3); margin-top: 6px; text-align: right; }
-
-    /* tab panels */
-    .tab-panel { display: none; flex: 1; flex-direction: column; min-height: 0; }
-    .tab-panel.active { display: flex; }
-
-    /* hubspot results */
-    .hs-results { display: flex; flex-direction: column; gap: 10px; }
-    .hs-result { background: var(--surf); border: 1px solid var(--border2); border-radius: 12px; padding: 10px 12px; }
-    .hs-result-title { font-size: 12px; font-weight: 700; color: var(--t1); }
-    .hs-result-meta { font-size: 11px; color: var(--t3); margin-top: 2px; }
-    .hs-props { margin-top: 8px; display: grid; grid-template-columns: 140px 1fr; gap: 4px 10px; font-size: 12px; }
-    .hs-prop-key { color: var(--t3); }
-    .hs-prop-val { color: var(--t1); word-break: break-word; }
-    .hs-hint { font-size: 11px; color: var(--t3); margin-top: 8px; }
-
-    /* anim */
-    @keyframes fadeUp { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
-    .rail { animation: fadeUp 0.3s ease 0s both; }
-    .hist-panel { animation: fadeUp 0.3s ease 0.05s both; }
-    .main { animation: fadeUp 0.3s ease 0.1s both; }
-  </style>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
 </head>
 
 <body>
 <div class="app">
 
-  <!-- ════ RAIL ════ -->
-  <nav class="rail">
-    <div class="rail-logo">
-      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
-    </div>
-
-    <button class="rail-btn active" data-tab="proposal">
-      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-      <span class="rail-tooltip">Proposal Evaluator</span>
+  <!-- ════ COLLAPSED RAIL (icon-only, 3 icons + toggle) ════ -->
+  <aside class="mini-rail" id="mini-rail" style="display:none;">
+    <button class="mini-rail-toggle" id="btn-open-sidebar" title="Open sidebar">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+        <rect x="3" y="3" width="18" height="18" rx="2"/>
+        <line x1="9" y1="3" x2="9" y2="21"/>
+      </svg>
     </button>
-
-    <button class="rail-btn" data-tab="websearch">
+    <div class="mini-rail-divider"></div>
+    <button class="mini-rail-btn active" title="Proposal Evaluator" data-tab="proposal">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2"/><line x1="12" y1="12" x2="12" y2="16"/><line x1="10" y1="14" x2="14" y2="14"/></svg>
+    </button>
+    <button class="mini-rail-btn" title="Web Search" data-tab="websearch">
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
-      <span class="rail-tooltip">Web Search</span>
     </button>
-
-    <button class="rail-btn" data-tab="hubspot">
-      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
-      <span class="rail-tooltip">HubSpot CRM</span>
-      <div class="rail-pip"></div>
+    <button class="mini-rail-btn" title="HubSpot CRM" data-tab="hubspot">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
     </button>
+  </aside>
 
-    <div class="rail-divider" style="margin-top:auto;"></div>
-
-    <button class="rail-btn">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
-      <span class="rail-tooltip">Settings</span>
-    </button>
-  </nav>
-
-  <!-- ════ HISTORY PANEL ════ -->
-  <div class="hist-panel" id="hist-panel">
-    <div class="hist-header">
-      <div class="hist-top-row">
-        <span class="hist-module-label" id="hist-module-label">Proposal</span>
-        <span class="hist-count-badge" id="hist-count">0</span>
-      </div>
-      <div class="hist-btn-row">
-        <button class="hbtn primary" id="btn-new-chat">
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
-          New Chat
+  <!-- ════ LEFT SIDEBAR (expanded) ════ -->
+  <aside class="left-sidebar" id="left-sidebar">
+    <div class="left-sidebar-inner">
+      <!-- Logo row with toggle -->
+      <div class="sidebar-logo-row">
+        <!-- Panel toggle icon matching image 1 -->
+        <button class="sidebar-collapse-btn" id="btn-collapse-sidebar" title="Collapse sidebar">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <rect x="3" y="3" width="18" height="18" rx="2"/>
+            <line x1="9" y1="3" x2="9" y2="21"/>
+          </svg>
         </button>
-        <button class="hbtn danger" id="btn-reset-files">
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="3,6 5,6 21,6"/><path d="M19,6v14a2,2 0 01-2,2H7a2,2 0 01-2-2V6m3,0V4a2,2 0 012-2h4a2,2 0 012,2v2"/></svg>
-          Reset
+        <img src="{{ url_for('static', filename='logo.png') }}" alt="UBTI" class="sidebar-logo-img" onerror="this.style.display='none'" />
+      </div>
+
+      <!-- Nav items -->
+      <nav class="sidebar-nav">
+        <button class="sidebar-nav-btn active" data-tab="proposal">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2"/><line x1="12" y1="12" x2="12" y2="16"/><line x1="10" y1="14" x2="14" y2="14"/></svg>
+          <span>Proposal Evaluator</span>
         </button>
-      </div>
-      <div class="hist-search-wrap">
-        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
-        <input class="hist-search-inp" type="text" placeholder="Search chats…" id="hist-search-inp" />
-      </div>
+        <button class="sidebar-nav-btn" data-tab="websearch">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+          <span>Web Search</span>
+        </button>
+        <button class="sidebar-nav-btn" data-tab="hubspot">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+          <span>HubSpot CRM</span>
+          <div class="sidebar-pip"></div>
+        </button>
+      </nav>
     </div>
-
-    <div class="hist-list" id="hist-list">
-      <div class="hist-empty" id="hist-empty">
-        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity=".4"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
-        <p>No conversations yet.<br/>Start a new chat.</p>
-      </div>
-    </div>
-
-    <div class="hist-foot">
-      <button class="hbtn" id="btn-clear-all" style="width:100%;justify-content:center;">
-        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="3,6 5,6 21,6"/><path d="M19,6v14a2,2 0 01-2,2H7a2,2 0 01-2-2V6m3,0V4a2,2 0 012-2h4a2,2 0 012,2v2"/></svg>
-        Clear All History
-      </button>
-    </div>
-  </div>
+  </aside>
 
   <!-- ════ MAIN ════ -->
   <main class="main">
@@ -344,12 +74,12 @@
     <div id="panel-proposal" class="tab-panel active">
       <div class="chat-topbar">
         <div class="ctb-left">
-          <div class="ctb-icon" style="background:var(--blue-dim);border:1px solid rgba(79,110,247,0.28);">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4f6ef7" stroke-width="2"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+          <div class="ctb-icon" style="background:var(--yellow);border:none;">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#1E1E1E" stroke-width="2.1"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
           </div>
           <div>
             <div class="ctb-title" id="proposal-chat-title">Proposal Evaluator</div>
-            <div class="ctb-sub">Attach a doc, then ask questions or type <code style="background:var(--surf);padding:1px 5px;border-radius:4px;font-family:monospace;font-size:10px;">evaluate</code></div>
+            <div class="ctb-sub">Attach a doc, then ask questions or type <code style="background:var(--surf2);padding:1px 5px;border-radius:4px;font-family:'Space Mono',monospace;font-size:10px;">evaluate</code></div>
           </div>
         </div>
         <div class="ctb-right">
@@ -363,11 +93,12 @@
       <div class="chat-log" id="proposal-log">
         <div class="welcome-screen" id="proposal-welcome">
           <div class="welcome-inner">
-            <div class="welcome-icon" style="background:var(--blue-dim);border:1px solid rgba(79,110,247,0.28);">
-              <svg width="25" height="25" viewBox="0 0 24 24" fill="none" stroke="#4f6ef7" stroke-width="1.8"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+            <div class="orb-wrap">
+              <div class="orb"></div>
             </div>
-            <div class="welcome-title">Proposal Evaluator</div>
-            <div class="welcome-sub">Click the <strong style="color:var(--t2)">📎</strong> button to attach a PDF, PPTX, or DOCX — then ask questions or type <strong style="color:var(--t2)">evaluate</strong> for a full scored assessment.</div>
+            <div class="greeting-hello">I am your UBTI Assistant</div>
+            <div class="greeting-title">How Can I <span class="greeting-accent">Help You Today?</span></div>
+            <div class="greeting-sub">Attach a PDF, PPTX, or DOCX and ask me anything about it.</div>
             <div class="welcome-chips">
               <div class="welcome-chip" onclick="fillInput('proposal','evaluate')">Evaluate proposal</div>
               <div class="welcome-chip" onclick="fillInput('proposal','Summarise key points')">Summarise</div>
@@ -379,7 +110,7 @@
 
       <div class="composer-wrap">
         <div class="attach-pill" id="prop-pill">
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#93aaff" stroke-width="2.2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/></svg>
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#9a7000" stroke-width="2.2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/></svg>
           <span class="attach-pill-name" id="prop-pill-name"></span>
           <button class="attach-pill-rm" id="prop-rm-file">✕</button>
         </div>
@@ -402,8 +133,8 @@
     <div id="panel-websearch" class="tab-panel">
       <div class="chat-topbar">
         <div class="ctb-left">
-          <div class="ctb-icon" style="background:rgba(139,92,246,0.14);border:1px solid rgba(139,92,246,0.28);">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+          <div class="ctb-icon" style="background:var(--pink-dim);border:1px solid rgba(255,142,202,0.3);">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--pink)" stroke-width="2.1"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
           </div>
           <div>
             <div class="ctb-title">Web Search</div>
@@ -414,11 +145,12 @@
       <div class="chat-log" id="websearch-log">
         <div class="welcome-screen" id="websearch-welcome">
           <div class="welcome-inner">
-            <div class="welcome-icon" style="background:rgba(139,92,246,0.14);border:1px solid rgba(139,92,246,0.28);">
-              <svg width="25" height="25" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="1.8"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+            <div class="orb-wrap">
+              <div class="orb orb-pink"></div>
             </div>
-            <div class="welcome-title">Web Search Agent</div>
-            <div class="welcome-sub">Ask about any company, market, or topic. Results come back as clean structured tables with sources.</div>
+            <div class="greeting-hello">I am your UBTI Assistant</div>
+            <div class="greeting-title">How Can I <span class="greeting-accent">Help You Today?</span></div>
+            <div class="greeting-sub">Search any company, market, or topic with live web data.</div>
             <div class="welcome-chips">
               <div class="welcome-chip" onclick="fillInput('websearch','Latest AI trends 2025')">AI trends 2025</div>
               <div class="welcome-chip" onclick="fillInput('websearch','Compare top CRM platforms')">Compare CRMs</div>
@@ -429,11 +161,11 @@
       </div>
       <div class="composer-wrap">
         <div class="composer">
-          <div class="composer-inner" style="border-color:rgba(139,92,246,0.2);">
+          <div class="composer-inner" style="border-color:rgba(255,142,202,0.3);">
             <textarea class="composer-ta" id="websearch-input" placeholder="Search for a company, topic, or question…" rows="1"></textarea>
           </div>
-          <button class="send-btn" id="websearch-send" style="background:var(--violet);box-shadow:0 3px 12px rgba(139,92,246,0.4);">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22,2 15,22 11,13 2,9"/></svg>
+          <button class="send-btn" id="websearch-send" style="background:var(--pink);">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22,2 15,22 11,13 2,9"/></svg>
           </button>
         </div>
         <div class="composer-hint" id="websearch-status">Ready · Enter to send</div>
@@ -444,8 +176,8 @@
     <div id="panel-hubspot" class="tab-panel">
       <div class="chat-topbar">
         <div class="ctb-left">
-          <div class="ctb-icon" style="background:var(--orange-dim);border:1px solid rgba(249,115,22,0.28);">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f97316" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
+          <div class="ctb-icon" style="background:var(--orange-dim);border:1px solid rgba(249,115,22,0.25);">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--orange)" stroke-width="2.1"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
           </div>
           <div>
             <div class="ctb-title">HubSpot CRM Integration</div>
@@ -457,11 +189,12 @@
       <div class="chat-log" id="hubspot-log">
         <div class="welcome-screen" id="hubspot-welcome">
           <div class="welcome-inner">
-            <div class="welcome-icon" style="background:var(--orange-dim);border:1px solid rgba(249,115,22,0.28);">
-              <svg width="25" height="25" viewBox="0 0 24 24" fill="none" stroke="#f97316" stroke-width="1.8"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
+            <div class="orb-wrap">
+              <div class="orb orb-orange"></div>
             </div>
-            <div class="welcome-title">HubSpot CRM</div>
-            <div class="welcome-sub">Ask about contacts, companies, or deals in plain English. Try: <strong style="color:var(--t2)">"how many leads"</strong> or <strong style="color:var(--t2)">"details about Acme Inc."</strong>.</div>
+            <div class="greeting-hello">I am your UBTI Assistant</div>
+            <div class="greeting-title">How Can I <span class="greeting-accent">Help You Today?</span></div>
+            <div class="greeting-sub">Ask about contacts, companies, or deals in plain English.</div>
             <div class="welcome-chips">
               <div class="welcome-chip" onclick="fillInput('hubspot','how many leads?')">How many leads?</div>
               <div class="welcome-chip" onclick="fillInput('hubspot','show recent deals')">Recent deals</div>
@@ -473,11 +206,11 @@
 
       <div class="composer-wrap">
         <div class="composer">
-          <div class="composer-inner" style="border-color:rgba(249,115,22,0.25);">
+          <div class="composer-inner" style="border-color:rgba(249,115,22,0.2);">
             <textarea class="composer-ta" id="hubspot-input" placeholder="Ask HubSpot…" rows="1"></textarea>
           </div>
-          <button class="send-btn" id="hubspot-send" style="background:var(--orange);box-shadow:0 3px 12px rgba(249,115,22,0.35);">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22,2 15,22 11,13 2,9"/></svg>
+          <button class="send-btn" id="hubspot-send" style="background:var(--orange);">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22,2 15,22 11,13 2,9"/></svg>
           </button>
         </div>
         <div class="composer-hint" id="hubspot-status">Ready · Enter to send</div>
@@ -485,408 +218,46 @@
     </div>
 
   </main>
+
+  <!-- ════ HISTORY PANEL (RIGHT) ════ -->
+  <div class="hist-panel" id="hist-panel">
+    <div class="hist-header">
+      <div class="hist-top-row">
+        <span class="hist-module-label" id="hist-module-label">Chat logs</span>
+        <span class="hist-count-badge" id="hist-count">0</span>
+      </div>
+      <div class="hist-btn-row">
+        <button class="hbtn primary" id="btn-new-chat">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+          New Chat
+        </button>
+        <button class="hbtn danger" id="btn-reset-files">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="3,6 5,6 21,6"/><path d="M19,6v14a2,2 0 01-2,2H7a2,2 0 01-2-2V6m3,0V4a2,2 0 012-2h4a2,2 0 012,2v2"/></svg>
+          Reset
+        </button>
+      </div>
+      <div class="hist-search-wrap">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+        <input class="hist-search-inp" type="text" placeholder="Search chats..." id="hist-search-inp" />
+      </div>
+    </div>
+    <div class="hist-list" id="hist-list">
+      <div class="hist-empty" id="hist-empty">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity=".3"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+        <p>No conversations yet.<br/>Start a new chat.</p>
+      </div>
+    </div>
+    <div class="hist-foot">
+      <button class="hbtn" id="btn-clear-all" style="width:100%;justify-content:center;">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="3,6 5,6 21,6"/><path d="M19,6v14a2,2 0 01-2,2H7a2,2 0 01-2-2V6m3,0V4a2,2 0 012-2h4a2,2 0 012,2v2"/></svg>
+        Clear All History
+      </button>
+    </div>
+  </div>
+
 </div>
 
-<!-- Hidden file input -->
 <input type="file" id="file-input-hidden" accept=".pdf,.ppt,.pptx,.doc,.docx" style="display:none;" />
-
-<script>
-const $ = id => document.getElementById(id);
-const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-
-function autoResize(el) {
-  el.style.height = 'auto';
-  el.style.height = Math.min(el.scrollHeight, 120) + 'px';
-}
-
-function parseMdTable(text) {
-  const lines = text.trim().split('\n');
-  if (lines.length < 2 || !lines[0].trim().startsWith('|') || !lines[1].includes('---')) return null;
-  const row = r => r.trim().replace(/^\||\|$/g,'').split('|').map(c => esc(c.trim()));
-  const heads = row(lines[0]);
-  const rows = lines.slice(2).map(row).filter(r => r.length > 1);
-  return `<table class="md-table"><thead><tr>${heads.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${rows.map(r=>`<tr>${r.map(c=>`<td>${c}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
-}
-
-function renderMd(text) {
-  if (!text) return '';
-  const tbl = parseMdTable(text);
-  if (tbl) return tbl;
-  return `<div style="font-size:13px;line-height:1.65;">${esc(text).replace(/\n/g,'<br/>')}</div>`;
-}
-
-function timeAgo(iso) {
-  const d = new Date(iso), now = new Date(), diff = (now-d)/1000;
-  if (diff < 60) return 'Just now';
-  if (diff < 3600) return Math.floor(diff/60)+'m ago';
-  if (diff < 86400) return Math.floor(diff/3600)+'h ago';
-  return d.toLocaleDateString();
-}
-
-const S = { tab:'proposal', proposal:{chatId:null}, websearch:{chatId:null}, hubspot:{chatId:null}, proposalFile:null };
-const MODULE_LABELS = {proposal:'Proposal', websearch:'Web Search', hubspot:'HubSpot'};
-
-// ── Tab switch ──
-document.querySelectorAll('.rail-btn[data-tab]').forEach(btn => {
-  btn.addEventListener('click', () => {
-    const tab = btn.dataset.tab;
-    S.tab = tab;
-    document.querySelectorAll('.rail-btn[data-tab]').forEach(b => b.classList.toggle('active', b.dataset.tab===tab));
-    document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.id===`panel-${tab}`));
-    const hp = $('hist-panel');
-    hp.classList.remove('collapsed');
-    $('hist-module-label').textContent=MODULE_LABELS[tab];
-    refreshHistory();
-    if (tab==='hubspot') { loadHubspotStatus(); }
-  });
-});
-
-// ── Bubbles ──
-function hideWelcome(tab) { const w=$(`${tab}-welcome`); if(w) w.style.display='none'; }
-
-function appendBubble(logId, role, content, fileName, isHtml=false) {
-  const log = $(logId);
-  const row = document.createElement('div');
-  row.className = `msg-row ${role==='user'?'user':''}`;
-
-  const av = document.createElement('div');
-  av.className = `msg-avatar ${role==='user'?'uav':'ai'}`;
-  av.innerHTML = role==='user'
-    ? `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--t3)" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`
-    : `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#4f6ef7" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>`;
-
-  const bub = document.createElement('div');
-  bub.className = `msg-bubble ${role==='user'?'user':'ai'}`;
-
-  let inner = '';
-  if (fileName && role==='user') inner += `<div class="file-chip-user"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/></svg>${esc(fileName)}</div><br/>`;
-  if (fileName && role==='ai') inner += `<div class="file-chip-ai"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/></svg>Analysing: ${esc(fileName)}</div><br/>`;
-
-  if (isHtml) bub.innerHTML = inner + content;
-  else { if(inner) bub.innerHTML=inner; bub.appendChild(document.createTextNode(content)); }
-
-  row.appendChild(av); row.appendChild(bub);
-  log.appendChild(row);
-  log.scrollTop = log.scrollHeight;
-  return bub;
-}
-
-function appendTyping(logId) {
-  const log=$(logId), row=document.createElement('div');
-  row.className='msg-row'; row.id=`typing-${logId}`;
-  const av=document.createElement('div'); av.className='msg-avatar ai';
-  av.innerHTML=`<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#4f6ef7" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>`;
-  const bub=document.createElement('div'); bub.className='typing-bub';
-  bub.innerHTML=`<span class="dot"></span><span class="dot"></span><span class="dot"></span>`;
-  row.appendChild(av); row.appendChild(bub);
-  log.appendChild(row); log.scrollTop=log.scrollHeight;
-}
-function removeTyping(logId){const e=$(`typing-${logId}`);if(e)e.remove();}
-
-// ── History ──
-async function refreshHistory() {
-  const tab=S.tab;
-  const prefix=tab==='proposal'?'/api/proposal':(tab==='websearch'?'/api/websearch':'/api/hubspot');
-  const list=$('hist-list'), cntEl=$('hist-count'), emptyEl=$('hist-empty');
-  try {
-    const r=await fetch(`${prefix}/chats`), d=await r.json();
-    const chats=(d.chats||[]).slice().reverse();
-    cntEl.textContent=chats.length;
-    list.querySelectorAll('.hist-item').forEach(el=>el.remove());
-    if(!chats.length){emptyEl.style.display='flex';return;}
-    emptyEl.style.display='none';
-    chats.forEach(chat=>{
-      const item=document.createElement('div');
-      const active=chat.id===S[tab].chatId;
-      item.className=`hist-item${active?' active':''}`;
-      const iconColor=tab==='proposal'
-        ?(active?'#4f6ef7':'var(--t3)')
-        :(tab==='websearch'?(active?'#8b5cf6':'var(--t3)'):(active?'#f97316':'var(--t3)'));
-      let iconSvg='';
-      if (tab==='proposal') {
-        iconSvg=`<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="${iconColor}" stroke-width="2"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>`;
-      } else if (tab==='websearch') {
-        iconSvg=`<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="${iconColor}" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>`;
-      } else {
-        iconSvg=`<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="${iconColor}" stroke-width="2"><path d="M3 7h18M5 7v10a2 2 0 002 2h10a2 2 0 002-2V7"/><path d="M7 7V5a2 2 0 012-2h6a2 2 0 012 2v2"/></svg>`;
-      }
-      item.innerHTML=`<div class="hist-item-icon">${iconSvg}</div><div style="min-width:0;flex:1;"><div class="hist-item-title">${esc(chat.title||'New Chat')}</div><div class="hist-item-time">${timeAgo(chat.created_at)}</div></div>`;
-      item.onclick=()=>loadChat(tab,chat.id);
-      list.appendChild(item);
-    });
-  } catch { emptyEl.style.display='flex'; }
-}
-
-async function loadChat(tab, chatId) {
-  const prefix=tab==='proposal'?'/api/proposal':(tab==='websearch'?'/api/websearch':'/api/hubspot');
-  const logId=tab==='proposal'?'proposal-log':(tab==='websearch'?'websearch-log':'hubspot-log');
-  try {
-    const r=await fetch(`${prefix}/chats/${chatId}`), d=await r.json();
-    S[tab].chatId=chatId;
-    $(logId).querySelectorAll('.msg-row').forEach(el=>el.remove());
-    if(tab==='proposal'){
-      $('proposal-chat-title').textContent=d.chat?.title||'Proposal Evaluator';
-      if(d.chat?.last_upload_name){$('prop-file-badge').style.display='inline-flex';$('prop-file-badge-name').textContent=d.chat.last_upload_name;}
-    }
-    const msgs=d.messages||[];
-    if(msgs.length) hideWelcome(tab);
-    msgs.forEach(m=>{
-      const isAi=m.role==='assistant';
-      if(tab==='hubspot' && isAi){
-        let parsed=null;
-        try{parsed=JSON.parse(m.content);}catch{}
-        if(parsed){
-          if(parsed.error){appendBubble(logId,'ai',`Error: ${parsed.error}`);return;}
-          appendBubble(logId,'ai',renderHubspotResponse(parsed),null,true);return;
-        }
-      }
-      appendBubble(logId,isAi?'ai':'user',isAi?renderMd(m.content):m.content,null,isAi);
-    });
-    refreshHistory();
-  } catch(e){console.error(e);}
-}
-
-async function createChat(tab) {
-  const prefix=tab==='proposal'?'/api/proposal':(tab==='websearch'?'/api/websearch':'/api/hubspot');
-  try {
-    const r=await fetch(`${prefix}/chats`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title:'New Chat'})});
-    const d=await r.json(); S[tab].chatId=d.id; await refreshHistory(); return d.id;
-  } catch{return null;}
-}
-
-// ── New chat ──
-$('btn-new-chat').onclick = async()=>{
-  const tab=S.tab;
-  S[tab].chatId=null;
-  if(tab==='proposal'){
-    $('proposal-log').querySelectorAll('.msg-row').forEach(el=>el.remove());
-    $('proposal-welcome').style.display='flex';
-    $('proposal-chat-title').textContent='Proposal Evaluator';
-    $('prop-file-badge').style.display='none';
-    clearAttach();
-  } else if(tab==='websearch') {
-    $('websearch-log').querySelectorAll('.msg-row').forEach(el=>el.remove());
-    $('websearch-welcome').style.display='flex';
-  } else {
-    $('hubspot-log').querySelectorAll('.msg-row').forEach(el=>el.remove());
-    $('hubspot-welcome').style.display='flex';
-  }
-  await createChat(tab);
-};
-
-// ── Reset files ──
-$('btn-reset-files').onclick = async()=>{
-  const tab=S.tab; if(tab==='hubspot') return;
-  if(!confirm('Reset all uploaded files?')) return;
-  try{
-    const r=await fetch('/api/proposal/reset-files',{method:'POST'}), d=await r.json();
-    appendBubble('proposal-log','ai',renderMd(d.message||'Files reset.'),null,true);
-    $('prop-file-badge').style.display='none'; clearAttach();
-  }catch(e){console.error(e);}
-};
-
-// ── Clear all ──
-$('btn-clear-all').onclick = async()=>{
-  const tab=S.tab;
-  if(!confirm('Delete all chats?')) return;
-  const prefix=tab==='proposal'?'/api/proposal':(tab==='websearch'?'/api/websearch':'/api/hubspot');
-  try{const r=await fetch(`${prefix}/chats`),d=await r.json();await Promise.all((d.chats||[]).map(c=>fetch(`${prefix}/chats/${c.id}`,{method:'DELETE'})));}catch{}
-  S[tab].chatId=null;
-  const logId=tab==='proposal'?'proposal-log':(tab==='websearch'?'websearch-log':'hubspot-log');
-  $(logId).querySelectorAll('.msg-row').forEach(el=>el.remove());
-  $(`${tab}-welcome`).style.display='flex';
-  refreshHistory();
-};
-
-// ── File attachment ──
-const fileInputHidden = $('file-input-hidden');
-const propPill=$('prop-pill'), propPillName=$('prop-pill-name'), propRm=$('prop-rm-file'), propAttachBtn=$('prop-attach-btn');
-const propFileBadge=$('prop-file-badge'), propFileBadgeName=$('prop-file-badge-name');
-
-propAttachBtn.addEventListener('click', ()=>fileInputHidden.click());
-fileInputHidden.addEventListener('change', e=>{
-  const f=e.target.files[0]; if(!f) return;
-  S.proposalFile=f;
-  propPillName.textContent=f.name;
-  propPill.classList.add('show');
-  propAttachBtn.classList.add('has-file');
-});
-propRm.addEventListener('click', clearAttach);
-function clearAttach(){
-  S.proposalFile=null; fileInputHidden.value='';
-  propPill.classList.remove('show'); propAttachBtn.classList.remove('has-file');
-}
-
-// ── Auto-resize ──
-['proposal-input','websearch-input','hubspot-input'].forEach(id=>{
-  const el=$(id); if(!el) return;
-  el.addEventListener('input',()=>autoResize(el));
-  el.addEventListener('keydown',e=>{
-    if(e.key==='Enter'&&!e.shiftKey){
-      e.preventDefault();
-      if(id==='proposal-input') sendProposal();
-      else if(id==='websearch-input') sendWebSearch();
-      else sendHubspot();
-    }
-  });
-});
-
-function fillInput(tab, text){ const el=$(`${tab}-input`); if(!el) return; el.value=text; autoResize(el); el.focus(); }
-
-// ── Send Proposal ──
-async function sendProposal(){
-  const inp=$('proposal-input'), txt=inp.value.trim(), file=S.proposalFile;
-  if(!txt&&!file) return;
-  if(!S.proposal.chatId) await createChat('proposal');
-  const display=txt||'evaluate';
-  hideWelcome('proposal');
-  appendBubble('proposal-log','user',display,file?file.name:null);
-  appendTyping('proposal-log');
-  inp.value=''; autoResize(inp);
-  $('proposal-status').textContent='Processing…';
-  const attachedFileName = file ? file.name : null;
-  clearAttach();
-  const fd=new FormData(); fd.append('input_text',display); if(file) fd.append('file',file);
-  try{
-    const r=await fetch(`/api/proposal/chats/${S.proposal.chatId}/messages`,{method:'POST',body:fd}), d=await r.json();
-    removeTyping('proposal-log');
-    if(d.output_text) appendBubble('proposal-log','ai',renderMd(d.output_text),null,true);
-    if(d.upload_status?.filename){propFileBadge.style.display='inline-flex';propFileBadgeName.textContent=d.upload_status.filename;}
-    if(d.chat?.title) $('proposal-chat-title').textContent=d.chat.title;
-    $('proposal-status').textContent='Ready · Enter to send';
-    refreshHistory();
-  }catch(e){removeTyping('proposal-log');appendBubble('proposal-log','ai','Error: '+e.message);$('proposal-status').textContent='Error';}
-}
-$('proposal-send').onclick=sendProposal;
-
-// ── Send Web Search ──
-async function sendWebSearch(){
-  const inp=$('websearch-input'), txt=inp.value.trim();
-  if(!txt) return;
-  if(!S.websearch.chatId) await createChat('websearch');
-  hideWelcome('websearch');
-  appendBubble('websearch-log','user',txt);
-  appendTyping('websearch-log');
-  inp.value=''; autoResize(inp);
-  $('websearch-status').textContent='Searching the web…';
-  try{
-    const r=await fetch(`/api/websearch/chats/${S.websearch.chatId}/messages`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({input_text:txt})}), d=await r.json();
-    removeTyping('websearch-log');
-    if(d.output_text) appendBubble('websearch-log','ai',renderMd(d.output_text),null,true);
-    $('websearch-status').textContent='Ready · Enter to send';
-    refreshHistory();
-  }catch(e){removeTyping('websearch-log');appendBubble('websearch-log','ai','Error: '+e.message);$('websearch-status').textContent='Error';}
-}
-$('websearch-send').onclick=sendWebSearch;
-
-// ── HubSpot status ──
-async function loadHubspotStatus() {
-  const badge = $('hubspot-status-badge');
-  if (!badge) return;
-  badge.textContent = 'Checking…';
-  try {
-    const r = await fetch('/api/hubspot/status');
-    const d = await r.json();
-    if (d.connected) {
-      badge.textContent = 'Connected';
-      badge.classList.remove('badge-soon');
-      badge.classList.add('badge-file');
-    } else {
-      badge.textContent = 'Not Connected';
-      badge.classList.add('badge-soon');
-      badge.classList.remove('badge-file');
-    }
-  } catch {
-    badge.textContent = 'Status Error';
-    badge.classList.add('badge-soon');
-    badge.classList.remove('badge-file');
-  }
-}
-
-function renderHubspotResponse(data) {
-  if (!data) return '';
-
-  if (typeof data.count === 'number') {
-    const criteria = Object.keys(data.search_criteria || {}).length
-      ? `Filters: ${esc(JSON.stringify(data.search_criteria))}`
-      : 'No filters applied';
-    return (
-      `<div class="hs-result">
-        <div class="hs-result-title">Count Result</div>
-        <div class="hs-result-meta">${esc(data.object_type || 'records')} · ${data.count} total</div>
-        <div class="hs-hint">${criteria}</div>
-      </div>`
-    );
-  }
-
-  const results = data.results || [];
-  if (!results.length) {
-    return `<div class="hs-result"><div class="hs-result-title">No records found.</div></div>`;
-  }
-
-  const blocks = results.map(item => {
-    const props = Object.assign({}, item.properties || {});
-    if (item.company_name) props.company_name = item.company_name;
-    const propsHtml = Object.keys(props).length
-      ? `<div class="hs-props">${Object.entries(props).map(([k,v]) => (
-          `<div class="hs-prop-key">${esc(k)}</div><div class="hs-prop-val">${esc(v)}</div>`
-        )).join('')}</div>`
-      : `<div class="hs-hint">No properties returned.</div>`;
-
-    return (
-      `<div class="hs-result">
-        <div class="hs-result-title">${esc(item.name || 'Record')}</div>
-        ${item.id ? `<div class="hs-result-meta">ID ${esc(item.id)}</div>` : ''}
-        ${propsHtml}
-      </div>`
-    );
-  }).join('');
-
-  const more = data.has_more ? `<div class="hs-hint">More results available. Type "next" to continue.</div>` : '';
-  return `<div class="hs-results">${blocks}${more}</div>`;
-}
-
-// ── Send HubSpot query ──
-async function sendHubspot(){
-  const inp=$('hubspot-input'), txt=inp.value.trim();
-  if(!txt) return;
-  if(!S.hubspot.chatId) await createChat('hubspot');
-  hideWelcome('hubspot');
-  appendBubble('hubspot-log','user',txt);
-  appendTyping('hubspot-log');
-  inp.value=''; autoResize(inp);
-  $('hubspot-status').textContent='Querying HubSpot…';
-  try{
-    const r=await fetch(`/api/hubspot/chats/${S.hubspot.chatId}/messages`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({question:txt})});
-    const d=await r.json();
-    removeTyping('hubspot-log');
-    if(d.error || d.response?.error){
-      appendBubble('hubspot-log','ai',`Error: ${d.error || d.response.error}`);
-    } else {
-      appendBubble('hubspot-log','ai',renderHubspotResponse(d.response||d),null,true);
-    }
-    $('hubspot-status').textContent='Ready · Enter to send';
-    refreshHistory();
-  }catch(e){
-    removeTyping('hubspot-log');
-    appendBubble('hubspot-log','ai','Error: '+e.message);
-    $('hubspot-status').textContent='Error';
-  }
-}
-$('hubspot-send').onclick=sendHubspot;
-
-// ── History search ──
-$('hist-search-inp').addEventListener('input',function(){
-  const q=this.value.toLowerCase();
-  $('hist-list').querySelectorAll('.hist-item').forEach(item=>{
-    const t=item.querySelector('.hist-item-title')?.textContent.toLowerCase()||'';
-    item.style.display=t.includes(q)?'':'none';
-  });
-});
-
-// ── Init ──
-refreshHistory();
-loadHubspotStatus();
-</script>
+<script src="{{ url_for('static', filename='app.js') }}"></script>
 </body>
 </html>
