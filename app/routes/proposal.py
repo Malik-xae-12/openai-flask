@@ -9,6 +9,7 @@ Multi-file support per chat:
 No schema changes needed — reuses existing columns.
 """
 
+import asyncio
 import json
 
 from flask import Blueprint, request, jsonify
@@ -97,7 +98,7 @@ def delete_chat(chat_id):
 
 # -- POST /api/proposal/chats/<id>/messages --------------------------------
 @proposal_bp.post("/chats/<int:chat_id>/messages")
-async def send_message(chat_id):
+def send_message(chat_id):
     chat = Chat.query.get_or_404(chat_id)
 
     input_text = request.form.get("input_text", "").strip()
@@ -106,7 +107,7 @@ async def send_message(chat_id):
 
     # -- Handle file upload --------------------------------------------------
     if uploaded_file and uploaded_file.filename:
-        meta = await upload_file_to_vector_store(uploaded_file)
+        meta = asyncio.run(upload_file_to_vector_store(uploaded_file))
 
         # Append new file_id to the chat's list (supports multiple files)
         file_ids = _get_file_ids(chat)
@@ -134,12 +135,12 @@ async def send_message(chat_id):
 
     # -- Run workflow --------------------------------------------------------
     file_ids_for_qa = [chat.openai_file_id] if chat.openai_file_id else file_ids
-    output = await run_proposal_workflow(
+    output = asyncio.run(run_proposal_workflow(
         user_text=input_text or "evaluate",
         history=history,
         file_ids=file_ids_for_qa,               # latest file only for Q&A scope
         latest_file_name=chat.last_upload_name, # most recent filename
-    )
+    ))
 
     # -- Persist messages ----------------------------------------------------
     if input_text:
@@ -159,12 +160,12 @@ async def send_message(chat_id):
 
 # -- POST /api/proposal/reset-files ----------------------------------------
 @proposal_bp.post("/reset-files")
-async def reset_files():
+def reset_files():
     """
     Delete ALL files from the global vector store.
     Clears file references on all proposal chats.
     """
-    result = await delete_all_files_in_vector_store()
+    result = asyncio.run(delete_all_files_in_vector_store())
 
     # Clear file references on all proposal chats
     chats = Chat.query.filter_by(mode="proposal").all()
